@@ -31,3 +31,13 @@ robot_ip:=&lt;robot_ip&gt; target_filename:="${HOME}/my_robot_calibration.yaml"<
 
 **Running in ROS**
 A setup script is provided in **setup.bash**. To use it run: <pre>source setup.bash</pre>
+
+
+**Running in Simulation**
+Simulation uses gazebo and is sourced from the directory https://github.com/UniversalRobots/Universal_Robots_ROS2_Gazebo_Simulation
+To install dependencies: <pre>cd ur_gazebo/src
+rosdep update && rosdep install --ignore-src --from-paths . -y</pre>
+Then build:
+<pre>colcon build --symlink-install</pre>
+This allows us to launch with the provided launch file to test:
+<pre>ros2 launch ur_simulation_gazebo ur_sim_moveit.launch.py</pre>
