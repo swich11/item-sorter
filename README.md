@@ -40,4 +40,5 @@ rosdep update && rosdep install --ignore-src --from-paths . -y</pre>
 Then build:
 <pre>colcon build --symlink-install</pre>
 This allows us to launch with the provided launch file to test:
-<pre>ros2 launch ur_simulation_gazebo ur_sim_moveit.launch.py</pre>
+<pre>ros2 launch ur_simulation_gazebo ur_sim_moveit.launch.py</pre> or to launch without the moveit plugin
+<pre>ros2 launch ur_simulation_gazebo ur_sim_control.launch.py</pre>
