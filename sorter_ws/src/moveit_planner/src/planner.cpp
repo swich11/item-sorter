@@ -5,7 +5,9 @@ Planner::Planner() : Node("planner") {
     move_group_interface = std::make_unique<moveit::planning_interface::MoveGroupInterface>(std::shared_ptr<rclcpp::Node>(this), "ur_manipulator");
     move_group_interface->setPlanningTime(10.0);
 
+    RCLCPP_INFO(this->get_logger(), "Grabbing the planning frame");
     std::string frame_id = move_group_interface->getPlanningFrame();
+    RCLCPP_INFO(this->get_logger(), frame_id.c_str());
 
 
     std::vector<moveit_msgs::msg::CollisionObject> collision_objects = {
