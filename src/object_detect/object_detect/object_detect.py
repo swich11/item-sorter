@@ -105,9 +105,10 @@ class objectDetect(Node):
             return [x, y, z]
         else:
             return None
-        
+    
+    # TODO: Implement shape classification
     def classify_shape(self, contour):
-        return ObjectShape.UNKNOWN # Placeholder implementation
+        return ObjectShape.UNKNOWN 
         
     def find_objects(self, colour_img, depth_img):
         if self.cv_image is None:
@@ -125,7 +126,7 @@ class objectDetect(Node):
         
         # Loop through each colour range and detect objects of that colour
         for colour_range in ObjectColour:
-            mask = cv2.inRange(hsv_image, np.array(colour_range.lower), np.array(colour_range.upper))
+            mask = cv2.inRange(hsv_image, colour_range.lower, colour_range.upper)
             # MIGHT NEED TO ADD MORPHOLOGICAL OPERATIONS HERE
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -193,7 +194,6 @@ def main():
     object_detect = objectDetect()
     rclpy.spin(object_detect)
     rclpy.shutdown()
-
 
 if __name__ == '__main__':
     main()
