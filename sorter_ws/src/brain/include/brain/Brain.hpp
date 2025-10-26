@@ -1,14 +1,15 @@
 #include <map>
 #include <string>
+#include <vector>
 
 
-#include "rclcpp.hpp"
+#include "rclcpp/rclcpp.hpp"
 
 
 #include "interfaces/msg/labelled_pose_array.hpp"
 #include "interfaces/msg/labelled_pose.hpp"
-#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "interfaces/srv/move.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 
 
 class Brain : public rclcpp::Node {
@@ -20,11 +21,10 @@ private:
 
     void goal_topic_callback(const interfaces::msg::LabelledPoseArray &msg);
 
-    void queue_move_request(const std::string &label);
-
     void send_move_request(const std::string &label);
 
-    void move_request_response(rclcpp::Client<interfaces::srv::Move>::SharedFuture future);
+    void move_request_response(const std::string &label, 
+                               rclcpp::Client<interfaces::srv::Move>::SharedFuture future);
 
 
     std::map<std::string, geometry_msgs::msg::Pose> item_pose_map;

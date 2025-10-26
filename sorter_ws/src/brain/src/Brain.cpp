@@ -1,4 +1,4 @@
-#include "Brain.hpp"
+#include "brain/Brain.hpp"
 
 
 using std::placeholders::_1;
@@ -21,10 +21,10 @@ void Brain::item_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
         try {
             auto& goal_pose = goal_pose_map.at(item_pose.label);
             if (rclcpp::Time(msg.header.stamp) - rclcpp::Time(goal_pose.header.stamp) < rclcpp::Duration(1, 0)) {
-                queue_move_request(item_pose.label);
+                send_move_request(item_pose.label);
             }
         }
-        catch (std::out_of_range e) {}
+        catch (std::out_of_range const&) {}
     }
 }
 
@@ -39,14 +39,31 @@ void Brain::goal_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
 }
 
 
-void Brain::queue_move_request(const std::string &label) {
-
-}
-
-
 void Brain::send_move_request(const std::string &label) {
     auto req = std::make_shared<interfaces::srv::Move::Request>();
     req->goal_pose = goal_pose_map.at(label).pose;
     req->start_pose = item_pose_map.at(label);
-    move_client->async_send_request(req, std::bind(&Brain::move_request_response, this, _1));
+    RCLCPP_INFO(this->get_logger(), "Sending Move Request %s", label.c_str());
+    move_client->async_send_request(req,
+        [this, label](rclcpp::Client<interfaces::srv::Move>::SharedFuture future) {
+            this->move_request_response(label, future);
+        }
+    );
+}
+
+
+void Brain::move_request_response(const std::string &label,
+                                  rclcpp::Client<interfaces::srv::Move>::SharedFuture future) {
+    auto res = future.get();
+    if (res->success) {
+        item_pose_map.erase(label);
+    }
+    RCLCPP_INFO(this->get_logger(), res->message.c_str());
+}
+    
+
+int main(int argc, char* argv[]) {
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<Brain>());
+    rclcpp::shutdown();
 }
