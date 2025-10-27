@@ -11,6 +11,7 @@ from sensor_msgs.msg import Image, CameraInfo
 from geometry_msgs.msg import TransformStamped, PointStamped, Pose, Point
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
+from interfaces.msg import LabelledPoseArray, LabelledPose
 
 from enum import Enum
 
@@ -59,8 +60,12 @@ class objectDetect(Node):
         self.depth_image = None
 
         # Timer definitions
-        self.routine_timer = self.create_timer(0.05, self.routine_callback)
+        self.routine_timer = self.create_timer(1, self.routine_callback)
 
+        # Publishers
+        self.object_pub = self.create_publisher(LabelledPoseArray, "/base/objects/labelled_pose_array", 10)
+        self.goal_pub = self.create_publisher(LabelledPoseArray, "/base/objects/labelled_pose_array", 10) 
+        
         # Transformation Interface
         self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
         self.tf_buffer = Buffer()
@@ -132,15 +137,21 @@ class objectDetect(Node):
         
         return shape, is_bin
         
-    def find_objects(self, colour_img, depth_img):
+    def detect_objects(self, colour_img, depth_img):
+        # Initialize msgs
+        objects = LabelledPoseArray()
+        objects.header.stamp = self.get_clock().now().to_msg()
+        objects.header.frame_id = "camera_color_optical_frame"
+        goals = LabelledPoseArray()
+        goals.header.stamp = self.get_clock().now().to_msg()
+        goals.header.frame_id = "camera_color_optical_frame"
+        
         if self.cv_image is None:
-            return None
-
+            return goals, objects, None
+        annotated = colour_img.copy()
+        
         # Convert BGR to HSV
         hsv_image = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2HSV)
-        
-        detections = []
-        annotated = colour_img.copy()
 
         # Define area thresholds # To be project parameters
         min_area = 500
@@ -168,12 +179,20 @@ class objectDetect(Node):
                     if global_position is not None:
                         # Append the object to the list
                         shape, is_bin = self.classify_shape(contour)
-                        detections.append({
-                            'colour': colour_range.name,
-                            'shape': shape.name,
-                            'is_bin': is_bin,  
-                            'position': global_position
-                        })
+                        if is_bin:
+                            goal = LabelledPose()
+                            goal.label = f"{colour_range.name}_{shape.name}_goal"
+                            goal.colour = colour_range.name
+                            goal.shape = shape.name
+                            goal.pose.position = Point(x=global_position[0], y=global_position[1], z=global_position[2])
+                            goals.poses.append(goal)
+                        else:
+                            object = LabelledPose()
+                            object.label = f"{colour_range.name}_{shape.name}_{len(objects.poses)+1}"
+                            object.colour = colour_range.name
+                            object.shape = shape.name
+                            object.pose.position = Point(x=global_position[0], y=global_position[1], z=global_position[2])
+                            objects.poses.append(object)
                         
                     # Show the mask image
                     cv2.imshow("Mask", mask)
@@ -183,8 +202,8 @@ class objectDetect(Node):
                     cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
 
         # Sort detections by colour and shape for consistent ordering
-        detections.sort(key=lambda d: (d['colour'], d['shape']))
-        return detections, annotated
+        # detections.sort(key=lambda d: (d['colour'], d['shape']))
+        return goals, objects, annotated
     
     def broadcast_transform(self, object, idx):
         transform = TransformStamped()
@@ -206,11 +225,12 @@ class objectDetect(Node):
         if (self.cv_image is None):
             self.get_logger().info("No image received. Routine callback skipped.")
             return None
-        
-        detections, annotated = self.detect_objects(self.color_frame, self.depth_frame)
 
-        for detection, idx in enumerate(detections):
-            self.broadcast_transform(detection, idx)
+        goals, objects, annotated = self.detect_objects(self.color_frame, self.depth_frame)
+
+        # Publish detected objects
+        self.object_pub.publish(objects)
+        self.goal_pub.publish(goals)
         return
 
 def main():
