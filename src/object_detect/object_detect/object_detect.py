@@ -1,0 +1,199 @@
+import rclpy
+import cv2
+import tf2_ros
+import os
+import numpy as np
+import pyrealsense2 as rs
+from cv_bridge import CvBridge, CvBridgeError
+
+from rclpy.node import Node
+from sensor_msgs.msg import Image, CameraInfo
+from geometry_msgs.msg import TransformStamped, PointStamped, Pose, Point
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+
+from enum import Enum
+
+# Define object colours with their HSV ranges
+# Simply need to add more colours here if needed no other code changes required
+class ObjectColour(Enum):
+    RED1    = ((0, 70, 50), (10, 255, 255))
+    RED2    = ((170, 70, 50), (180, 255, 255))
+    GREEN   = ((35, 40, 40), (85, 255, 255))
+    BLUE    = ((90, 50, 50), (140, 255, 255))
+    YELLOW  = ((15, 100, 100), (35, 255, 255))
+
+    @property
+    def lower(self):
+        return np.array(self.value[0], dtype=np.uint8)
+
+    @property
+    def upper(self):
+        return np.array(self.value[1], dtype=np.uint8)
+
+# Define object shapes
+class ObjectShape(Enum):
+    CIRCLE = 1
+    SQUARE = 2
+    RECTANGLE = 3
+    TRIANGLE = 4
+    STAR = 5
+    UNKNOWN = 0
+
+class objectDetect(Node):
+
+    def __init__(self):
+        super().__init__('object_detect')
+        
+        # depth camera subscriptions
+        self.image_sub = self.create_subscription( Image, '/camera/camera/color/image_raw', self.colour_img_callback, 10)
+        self.point_cloud_sub = self.create_subscription( Image, '/camera/camera/aligned_depth_to_color/image_raw', self.depth_img_callback, 10)
+        self.cam_info_sub = self.create_subscription( CameraInfo, '/camera/camera/aligned_depth_to_color/camera_info', self.camera_info_callback,10)
+        self.intrinsics = None
+        self.depth_image = None
+
+        # Timer definitions
+        self.routine_timer = self.create_timer(0.05, self.routine_callback)
+
+        # Transformation Interface
+        self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
+        # General Variables
+        self.cv_image = None
+        self.mask = None
+        self.cv_bridge = CvBridge()
+
+    def camera_info_callback(self, cameraInfo):
+        try:
+            if self.intrinsics:
+                return
+            self.intrinsics = rs.intrinsics()
+            self.intrinsics.width = cameraInfo.width
+            self.intrinsics.height = cameraInfo.height
+            self.intrinsics.ppx = cameraInfo.k[2]
+            self.intrinsics.ppy = cameraInfo.k[5]
+            self.intrinsics.fx = cameraInfo.k[0]
+            self.intrinsics.fy = cameraInfo.k[4]
+            if cameraInfo.distortion_model == 'plumb_bob':
+                self.intrinsics.model = rs.distortion.brown_conrady
+            elif cameraInfo.distortion_model == 'equidistant':
+                self.intrinsics.model = rs.distortion.kannala_brandt4
+            self.intrinsics.coeffs = [i for i in cameraInfo.d]
+        except CvBridgeError as e:
+            print(e)
+            return
+
+    # This gets bgr image from the image topic and finds where green in the image is
+    def colour_img_callback(self, msg):      
+        try:
+            self.cv_image = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+        except Exception as e:
+            self.get_logger().error(f"Error in colour_img_callback: {str(e)}")
+
+    # This gets depth_frame aligned with RGB image
+    def depth_img_callback(self, msg):
+        try:
+            self.depth_image = self.cv_bridge.imgmsg_to_cv2(msg, msg.encoding)
+        except Exception as e:
+            self.get_logger().error(f"Error in depth_img_callback: {str(e)}")
+
+    def pixel_to_global(self, pixel_pt):
+        if self.depth_image is not None and self.intrinsics is not None:
+            [x,y,z] = rs.rs2_deproject_pixel_to_point(self.intrinsics, (pixel_pt[0],pixel_pt[1] ), self.depth_image[pixel_pt[0],pixel_pt[1] ]*0.001)
+            return [x, y, z]
+        else:
+            return None
+    
+    # TODO: Implement shape classification
+    def classify_shape(self, contour):
+        return ObjectShape.UNKNOWN 
+        
+    def find_objects(self, colour_img, depth_img):
+        if self.cv_image is None:
+            return None
+
+        # Convert BGR to HSV
+        hsv_image = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2HSV)
+        
+        detections = []
+        annotated = colour_img.copy()
+
+        # Define area thresholds # To be project parameters
+        min_area = 500
+        max_area = 50000
+        
+        # Loop through each colour range and detect objects of that colour
+        for colour_range in ObjectColour:
+            mask = cv2.inRange(hsv_image, colour_range.lower, colour_range.upper)
+            # MIGHT NEED TO ADD MORPHOLOGICAL OPERATIONS HERE
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            for contour in contours:
+                area = cv2.contourArea(contour)
+                if area < min_area or area > max_area:
+                    continue
+            
+                moments = cv2.moments(contour)
+                if moments['m00'] != 0:
+                    # Calculate the center of the object
+                    cX = int(moments['m10'] / moments['m00'])
+                    cY = int(moments['m01'] / moments['m00'])
+                    
+                    # Convert the pixel coordinates to 3D world coordinates
+                    global_position = self.pixel_to_global([cX, cY])
+                    if global_position is not None:
+                        # Append the object to the list
+                        detections.append({
+                        'colour': colour_range.name,
+                        'shape': self.classify_shape(contour).name,
+                        'position': global_position,
+                    })
+                        
+                    # Show the mask image
+                    cv2.imshow("Mask", mask)
+                    cv2.waitKey(1)  # Wait for a brief moment to update the window
+
+                    # Draw the center on the original image for visualization
+                    cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
+
+        # Sort detections by colour and shape for consistent ordering
+        detections.sort(key=lambda d: (d['colour'], d['shape']))
+        return detections, annotated
+    
+    def broadcast_transform(self, object, idx):
+        transform = TransformStamped()
+
+        # Header info
+        # idx for distinguishing multiple objects of same type
+        transform_stamped = TransformStamped()
+        transform_stamped.header.stamp = self.get_clock().now().to_msg()
+        transform_stamped.header.frame_id = "camera_color_optical_frame"
+        transform_stamped.child_frame_id = f'{object.colour}_{object.shape}_{idx}'
+
+        # Set translation
+        transform_stamped.transform.translation = Point(x=object.position[0], y=object.position[1], z=object.position[2])
+        
+        # Send the transform
+        self.tf_broadcaster.sendTransform(transform_stamped)
+
+    def routine_callback(self):
+        if (self.cv_image is None):
+            self.get_logger().info("No image received. Routine callback skipped.")
+            return None
+        
+        detections, annotated = self.detect_objects(self.color_frame, self.depth_frame)
+
+        for detection, idx in enumerate(detections):
+            self.broadcast_transform(detection, idx)
+        return
+
+def main():
+    rclpy.init()
+    object_detect = objectDetect()
+    rclpy.spin(object_detect)
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
