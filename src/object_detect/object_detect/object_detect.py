@@ -14,6 +14,10 @@ from tf2_ros.transform_listener import TransformListener
 
 from enum import Enum
 
+# Constant Parameters 
+# TODO: make project variables
+MIN_BIN_AREA_THRESHOLD = 2000 # TO ADJUST
+
 # Define object colours with their HSV ranges
 # Simply need to add more colours here if needed no other code changes required
 class ObjectColour(Enum):
@@ -33,11 +37,13 @@ class ObjectColour(Enum):
 
 # Define object shapes
 class ObjectShape(Enum):
-    CIRCLE = 1
-    SQUARE = 2
-    RECTANGLE = 3
-    TRIANGLE = 4
-    STAR = 5
+    CYLINDER = 1
+    SQUARE_PRISM = 2
+    TRIANGULAR_PRISM = 3
+    RECTANGULAR_PRISM = 4
+    STAR_PRISM = 5
+    HEXAGONAL_PRISM = 6
+
     UNKNOWN = 0
 
 class objectDetect(Node):
@@ -108,7 +114,23 @@ class objectDetect(Node):
     
     # TODO: Implement shape classification
     def classify_shape(self, contour):
-        return ObjectShape.UNKNOWN 
+        # Polygonal approximation
+        peri = cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, 0.02 * peri, True) # May need to find face among approximations
+        vertices = len(approx)
+        area = cv2.contourArea(contour)
+
+        shape = ObjectShape.UNKNOWN
+        if vertices == 3:
+            shape = ObjectShape.TRIANGULAR_PRISM
+        elif vertices == 4:
+            shape = ObjectShape.SQUARE_PRISM
+        elif 5 <= vertices <= 6:
+            shape = ObjectShape.HEXAGONAL_PRISM
+            
+        is_bin = (area > MIN_BIN_AREA_THRESHOLD)
+        
+        return shape, is_bin
         
     def find_objects(self, colour_img, depth_img):
         if self.cv_image is None:
@@ -145,11 +167,13 @@ class objectDetect(Node):
                     global_position = self.pixel_to_global([cX, cY])
                     if global_position is not None:
                         # Append the object to the list
+                        shape, is_bin = self.classify_shape(contour)
                         detections.append({
-                        'colour': colour_range.name,
-                        'shape': self.classify_shape(contour).name,
-                        'position': global_position,
-                    })
+                            'colour': colour_range.name,
+                            'shape': shape.name,
+                            'is_bin': is_bin,  
+                            'position': global_position
+                        })
                         
                     # Show the mask image
                     cv2.imshow("Mask", mask)
