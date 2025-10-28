@@ -212,7 +212,7 @@ class objectDetect(Node):
         # idx for distinguishing multiple objects of same type
         transform_stamped = TransformStamped()
         transform_stamped.header.stamp = self.get_clock().now().to_msg()
-        transform_stamped.header.frame_id = "camera_color_optical_frame"
+        transform_stamped.header.frame_id = "camera_frame"
         transform_stamped.child_frame_id = f'{object.colour}_{object.shape}_{idx}'
 
         # Set translation
