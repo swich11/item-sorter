@@ -50,7 +50,6 @@ moveit_msgs::msg::CollisionObject Planner::generateCollisionObject(float sx,floa
   return collision_object;
 }
 
-// TODO: Add a launch file to include robot description
 
 int main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
