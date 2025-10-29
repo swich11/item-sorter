@@ -204,7 +204,7 @@ class objectDetect(Node):
         # Sort detections by colour and shape for consistent ordering
         # detections.sort(key=lambda d: (d['colour'], d['shape']))
         return goals, objects, annotated
-    
+
     def broadcast_transform(self, object, idx):
         transform = TransformStamped()
 
@@ -231,6 +231,10 @@ class objectDetect(Node):
         # Publish detected objects
         self.object_pub.publish(objects)
         self.goal_pub.publish(goals)
+        
+        if annotated is not None:
+            cv2.imshow('annotated', annotated)
+            cv2.waitKey(1)
         return
 
 def main():
