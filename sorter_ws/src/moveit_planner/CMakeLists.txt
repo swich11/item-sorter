@@ -10,7 +10,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 
-add_executable(planner src/planner.cpp)
+add_executable(planner src/Planner.cpp)
 target_compile_features(planner PUBLIC c_std_99 cxx_std_17)
 target_include_directories(planner PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

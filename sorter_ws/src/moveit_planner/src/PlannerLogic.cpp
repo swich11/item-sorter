@@ -1,4 +1,4 @@
-#include "moveit_planner/planner.hpp"
+#include "moveit_planner/PlannerLogic.hpp"
 
 
 using namespace moveit::hybrid_planning;

@@ -23,9 +23,13 @@ private:
 
     void send_move_request(const std::string &label);
 
+    void send_move_request(const geometry_msgs::msg::Pose &start_pose,
+                           const geometry_msgs::msg::Pose &goal_pose);
+
     void move_request_response(const std::string &label, 
                                rclcpp::Client<interfaces::srv::Move>::SharedFuture future);
 
+    void move_request_response(rclcpp::Client<interfaces::srv::Move>::SharedFuture future);
 
     std::map<std::string, geometry_msgs::msg::Pose> item_pose_map;
     std::map<std::string, geometry_msgs::msg::PoseStamped> goal_pose_map;
