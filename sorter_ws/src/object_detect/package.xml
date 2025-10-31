@@ -18,7 +18,6 @@
   <exec_depend>interfaces</exec_depend>
 
   <depend>rclcpp</depend>
-  <depend>rclpy</depend>
   <depend>python-numpy</depend>
   <depend>sensor_msgs</depend>
   <depend>cv_bridge</depend>
