@@ -12,6 +12,7 @@ from geometry_msgs.msg import TransformStamped, PointStamped, Pose, Point
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 from interfaces.msg import LabelledPoseArray, LabelledPose
+from visualization_msgs.msg import Marker, MarkerArray
 
 from enum import Enum
 
@@ -65,6 +66,7 @@ class objectDetect(Node):
         # Publishers
         self.object_pub = self.create_publisher(LabelledPoseArray, "/base/objects/labelled_pose_array", 10)
         self.goal_pub = self.create_publisher(LabelledPoseArray, "/base/objects/labelled_pose_array", 10) 
+        self.marker_pub = self.create_publisher(MarkerArray, "/base/objects/markers", 10)
         
         # Transformation Interface
         self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
@@ -136,6 +138,27 @@ class objectDetect(Node):
         is_bin = (area > MIN_BIN_AREA_THRESHOLD)
         
         return shape, is_bin
+    
+    def make_marker(self, idx, colour_range, position, is_bin):
+        Marker_msg = Marker()
+        Marker_msg.header.frame_id = "camera_color_optical_frame"
+        Marker_msg.header.stamp = self.get_clock().now().to_msg()
+        Marker_msg.ns = "detected_objects"
+        Marker_msg.id = idx
+        Marker_msg.type = Marker.SPHERE
+        Marker_msg.action = Marker.ADD
+        Marker_msg.pose.position = Point(x=position[0], y=position[1], z=position[2])
+        Marker_msg.pose.orientation.w = 1.0
+        Marker_msg.scale.x = 0.1 if is_bin else 0.05
+        Marker_msg.scale.y = 0.1 if is_bin else 0.05
+        Marker_msg.scale.z = 0.1 if is_bin else 0.05
+        Marker_msg.color.a = 1.0
+        colour_low = colour_range.value[0]
+        colour_high = colour_range.value[1]
+        Marker_msg.color.r = (colour_low[0]+colour_high[0])/(2*255)
+        Marker_msg.color.g = (colour_low[1]+colour_high[1])/(2*255)
+        Marker_msg.color.b = (colour_low[2]+colour_high[2])/(2*255)
+        return Marker_msg
         
     def detect_objects(self, colour_img, depth_img):
         # Initialize msgs
@@ -145,9 +168,11 @@ class objectDetect(Node):
         goals = LabelledPoseArray()
         goals.header.stamp = self.get_clock().now().to_msg()
         goals.header.frame_id = "camera_color_optical_frame"
+        markers = MarkerArray()
+        num_detected = 0
         
         if self.cv_image is None:
-            return goals, objects, None
+            return goals, objects, markers, None
         annotated = colour_img.copy()
         
         # Convert BGR to HSV
@@ -179,20 +204,25 @@ class objectDetect(Node):
                     if global_position is not None:
                         # Append the object to the list
                         shape, is_bin = self.classify_shape(contour)
+                        num_detected += 1
                         if is_bin:
                             goal = LabelledPose()
-                            goal.label = f"{colour_range.name}_{shape.name}_goal"
+                            goal.label = f"{colour_range.name}_{shape.name}_{num_detected}_goal"
                             goal.colour = colour_range.name
                             goal.shape = shape.name
                             goal.pose.position = Point(x=global_position[0], y=global_position[1], z=global_position[2])
                             goals.poses.append(goal)
                         else:
                             object = LabelledPose()
-                            object.label = f"{colour_range.name}_{shape.name}_{len(objects.poses)+1}"
+                            object.label = f"{colour_range.name}_{shape.name}_{num_detected}"
                             object.colour = colour_range.name
                             object.shape = shape.name
                             object.pose.position = Point(x=global_position[0], y=global_position[1], z=global_position[2])
                             objects.poses.append(object)
+                            
+                        # Create and append marker for visualization
+                        Marker_msg = self.make_marker(num_detected, colour_range, global_position, is_bin)
+                        markers.markers.append(Marker_msg)
                         
                     # Show the mask image
                     cv2.imshow("Mask", mask)
@@ -203,7 +233,7 @@ class objectDetect(Node):
 
         # Sort detections by colour and shape for consistent ordering
         # detections.sort(key=lambda d: (d['colour'], d['shape']))
-        return goals, objects, annotated
+        return goals, objects, markers, annotated
 
     def broadcast_transform(self, object, idx):
         transform = TransformStamped()
@@ -226,12 +256,13 @@ class objectDetect(Node):
             self.get_logger().info("No image received. Routine callback skipped.")
             return None
 
-        goals, objects, annotated = self.detect_objects(self.color_frame, self.depth_frame)
+        goals, objects, markers, annotated = self.detect_objects(self.color_frame, self.depth_frame)
 
         # Publish detected objects
         self.object_pub.publish(objects)
         self.goal_pub.publish(goals)
-        
+        self.marker_pub.publish(markers)
+
         if annotated is not None:
             cv2.imshow('annotated', annotated)
             cv2.waitKey(1)
