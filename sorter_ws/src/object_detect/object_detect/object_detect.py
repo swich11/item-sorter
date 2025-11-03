@@ -154,11 +154,16 @@ class objectDetect(Node):
         Marker_msg.scale.y = 0.1 if is_bin else 0.05
         Marker_msg.scale.z = 0.1 if is_bin else 0.05
         Marker_msg.color.a = 1.0
-        colour_low = colour_range.value[0]
-        colour_high = colour_range.value[1]
-        Marker_msg.color.r = (colour_low[0]+colour_high[0])/(2*255)
-        Marker_msg.color.g = (colour_low[1]+colour_high[1])/(2*255)
-        Marker_msg.color.b = (colour_low[2]+colour_high[2])/(2*255)
+
+        # colour_low = self.hsv_to_rgb(colour_range.value[0])
+        # colour_high = self.hsv_to_rgb(colour_range.value[1])
+        # Marker_msg.color.b = (colour_low[0]+colour_high[0])/(2*255)
+        # Marker_msg.color.g = (colour_low[1]+colour_high[1])/(2*255)
+        # Marker_msg.color.r = (colour_low[2]+colour_high[2])/(2*255)
+
+        Marker_msg.color.r = 255.0 if colour_range in [ObjectColour.RED1, ObjectColour.RED2, ObjectColour.YELLOW] else 0.0
+        Marker_msg.color.g = 255.0 if colour_range in [ObjectColour.GREEN, ObjectColour.YELLOW] else 0.0
+        Marker_msg.color.b = 255.0 if colour_range == ObjectColour.BLUE else 0.0
         return Marker_msg
         
     def detect_objects(self, colour_img, depth_img):
@@ -253,16 +258,21 @@ class objectDetect(Node):
         # Send the transform
         self.tf_broadcaster.sendTransform(transform_stamped)
 
+    def hsv_to_rgb(self, hsv_color):
+        hsv_color = np.array(hsv_color, dtype=np.float32) / np.array([180.0, 255.0, 255.0])
+        rgb_color = cv2.cvtColor(np.uint8([[hsv_color]]), cv2.COLOR_HSV2RGB)[0][0]
+        return rgb_color.astype(np.float32) / 255.0
+
     # For vision demo only
     def test(self):
         # Create some test markers for visualization
         markers = MarkerArray()
         test_positions = [
-            [0.3, 0.0, 0.2],
-            [0.4, 0.1, 0.2],
-            [0.5, -0.1, 0.2],
-            [0.6, 0.0, 0.2],
-            [0.7, 0.1, 0.2]
+            [1.2, 0.4, -0.2],
+            [1.2, 0.2, -0.2],
+            [1.2, -0.1, -0.2],
+            [1.2, -0.3, -0.2],
+            [1.2, 0.0, -0.2]
         ]
         test_colours = [ObjectColour.RED1, ObjectColour.RED2, ObjectColour.GREEN, ObjectColour.BLUE, ObjectColour.YELLOW]
         

@@ -81,7 +81,7 @@ def main():
     y = 0.0
     z = 1.0
     roll = 0
-    pitch = (-45.0/180.0)*math.pi
+    pitch = (45.0/180.0)*math.pi
     yaw = 0
 
     # pass parameters and initialize node
