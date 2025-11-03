@@ -25,32 +25,29 @@ class Planner : public rclcpp::Node {
         moveit_msgs::msg::CollisionObject generateCollisionObject(
             float sx,float sy, float sz, float x, float y, float z, std::string frame_id, std::string id);
 
-
         geometry_msgs::msg::Pose generatePoseMsg(
             float x,float y, float z,float qx,float qy,float qz,float qw
         );
 
-
         void moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::Request> req,
                                  std::shared_ptr<interfaces::srv::Move::Response> res);
-
 
         bool move(std::shared_ptr<interfaces::srv::Move::Response> res,
                   const geometry_msgs::msg::Pose &target_pose);
 
-        
-        bool grasp();
+        void asyncMoveHome();
 
+        bool grasp();
 
         bool ungrasp();
 
-
         void setPathConstraints();
 
-
+    private:
         std::shared_ptr<planning_scene_monitor::PlanningSceneMonitor> planning_scene_monitor;
         std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_interface;
 
         rclcpp::Service<interfaces::srv::Move>::SharedPtr move_server;
-        geometry_msgs::msg::Pose home;
+        geometry_msgs::msg::Pose home_pose;
+        bool grabbed_home_pose;
 };

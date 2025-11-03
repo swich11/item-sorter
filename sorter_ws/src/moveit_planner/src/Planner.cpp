@@ -10,6 +10,8 @@ Planner::Planner() : Node("planner") {
     move_group_interface = std::make_unique<moveit::planning_interface::MoveGroupInterface>(std::shared_ptr<rclcpp::Node>(this), "ur_manipulator");
     move_group_interface->setPlanningTime(10.0);
     move_group_interface->allowReplanning(true);
+    move_group_interface->startStateMonitor(3.0);
+
 
     planning_scene_monitor = std::make_unique<planning_scene_monitor::PlanningSceneMonitor>(std::shared_ptr<rclcpp::Node>(this), "robot_description");
 
@@ -31,21 +33,27 @@ Planner::Planner() : Node("planner") {
 
     setPathConstraints();
 
-    move_server = this->create_service<interfaces::srv::Move>("move", std::bind(&Planner::moveServiceCallback, this, _1, _2));
+    grabbed_home_pose = false;
+    move_server = this->create_service<interfaces::srv::Move>("/moveit_planner/move", std::bind(&Planner::moveServiceCallback, this, _1, _2));
+    RCLCPP_INFO(this->get_logger(), "Planner Launched. Ready for Commands");
 }
-
 
 void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::Request> req,
-                                  std::shared_ptr<interfaces::srv::Move::Response> res) {   
+                                  std::shared_ptr<interfaces::srv::Move::Response> res) {
+    RCLCPP_INFO(this->get_logger(), "Received Move Request.");
+    if (!grabbed_home_pose) {
+        home_pose = move_group_interface->getCurrentPose().pose;
+        grabbed_home_pose = true;
+    }
     move_group_interface->stop();
     move(res, req->start_pose);
+    RCLCPP_INFO(this->get_logger(), "At Start Pose.");
     grasp();
     move(res, req->goal_pose);
+    RCLCPP_INFO(this->get_logger(), "At Goal Pose.");
     ungrasp();
-    move_group_interface->setPoseTarget(home);
-    move_group_interface->asyncMove();
+    asyncMoveHome();
 }
-
 
 bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res,
                    const geometry_msgs::msg::Pose &target_pose) {
@@ -64,18 +72,21 @@ bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res,
     return true;
 }
 
+void Planner::asyncMoveHome() {
+    move_group_interface->setPoseTarget(home_pose);
+    move_group_interface->asyncMove();
+}
 
 // TODO: Add grasping
 bool Planner::grasp() {
+    sleep(3);
     return true;
 }
-
 
 bool Planner::ungrasp() {
+    sleep(3);
     return true;
 }
-
-
 
 void Planner::setPathConstraints() {
     // Lock wrist 2 link to simplify path planning
@@ -89,7 +100,6 @@ void Planner::setPathConstraints() {
     constraints.joint_constraints.push_back(wrist_2_constraint);
     // move_group_interface->setPathConstraints(constraints);
 }
-
 
 moveit_msgs::msg::CollisionObject Planner::generateCollisionObject(float sx,float sy, float sz, float x, float y, float z, std::string frame_id, std::string id) {
   moveit_msgs::msg::CollisionObject collision_object;
@@ -116,24 +126,23 @@ moveit_msgs::msg::CollisionObject Planner::generateCollisionObject(float sx,floa
   return collision_object;
 }
 
-
 geometry_msgs::msg::Pose Planner::generatePoseMsg(float x, float y, float z, float qx, float qy, float qz, float qw) {
     geometry_msgs::msg::Pose pose;
     pose.orientation.w = qw;
     pose.orientation.x = qx;
     pose.orientation.y = qy;
     pose.orientation.z = qz;
-    pose.position.x = qx;
-    pose.position.y = qy;
-    pose.position.z = qz;
+    pose.position.x = x;
+    pose.position.y = y;
+    pose.position.z = z;
     return pose;
 }
 
-
-
-
 int main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<Planner>());
+    auto planner = std::make_shared<Planner>();
+    rclcpp::executors::MultiThreadedExecutor executor;
+    executor.add_node(planner);
+    executor.spin();
     rclcpp::shutdown();
 }
