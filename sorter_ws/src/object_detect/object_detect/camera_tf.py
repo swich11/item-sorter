@@ -82,7 +82,7 @@ def main():
     z = 1.0
     roll = 0
     pitch = (45.0/180.0)*math.pi
-    yaw = 0
+    yaw = math.pi
 
     # pass parameters and initialize node
     rclpy.init()
