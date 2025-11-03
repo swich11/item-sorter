@@ -58,7 +58,7 @@ class objectDetect(Node):
         self.point_cloud_sub = self.create_subscription( Image, '/camera/camera/aligned_depth_to_color/image_raw', self.depth_img_callback, 10)
         self.cam_info_sub = self.create_subscription( CameraInfo, '/camera/camera/aligned_depth_to_color/camera_info', self.camera_info_callback,10)
         self.intrinsics = None
-        self.depth_image = None
+        
 
         # Timer definitions
         self.routine_timer = self.create_timer(1, self.routine_callback)
@@ -75,6 +75,7 @@ class objectDetect(Node):
 
         # General Variables
         self.cv_image = None
+        self.depth_image = None
         self.mask = None
         self.cv_bridge = CvBridge()
 
@@ -105,7 +106,7 @@ class objectDetect(Node):
         except Exception as e:
             self.get_logger().error(f"Error in colour_img_callback: {str(e)}")
 
-    # This gets depth_frame aligned with RGB image
+    # This gets depth_image aligned with RGB image
     def depth_img_callback(self, msg):
         try:
             self.depth_image = self.cv_bridge.imgmsg_to_cv2(msg, msg.encoding)
@@ -299,9 +300,9 @@ class objectDetect(Node):
     def routine_callback(self):
         if (self.cv_image is None):
             self.get_logger().info("No image received. Routine callback skipped.")
-            return None
+            # return None
 
-        goals, objects, markers, annotated = self.detect_objects(self.color_frame, self.depth_frame)
+        goals, objects, markers, annotated = self.detect_objects(self.cv_image, self.depth_image)
         
         # For demo only without object detection
         goals, objects, markers = self.test()
