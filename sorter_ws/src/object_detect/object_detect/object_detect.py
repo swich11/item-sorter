@@ -141,7 +141,7 @@ class objectDetect(Node):
     
     def make_marker(self, idx, colour_range, position, is_bin):
         Marker_msg = Marker()
-        Marker_msg.header.frame_id = "camera_color_optical_frame"
+        Marker_msg.header.frame_id = "camera_frame"
         Marker_msg.header.stamp = self.get_clock().now().to_msg()
         Marker_msg.ns = "detected_objects"
         Marker_msg.id = idx
@@ -164,10 +164,10 @@ class objectDetect(Node):
         # Initialize msgs
         objects = LabelledPoseArray()
         objects.header.stamp = self.get_clock().now().to_msg()
-        objects.header.frame_id = "camera_color_optical_frame"
+        objects.header.frame_id = "camera_frame"
         goals = LabelledPoseArray()
         goals.header.stamp = self.get_clock().now().to_msg()
-        goals.header.frame_id = "camera_color_optical_frame"
+        goals.header.frame_id = "camera_frame"
         markers = MarkerArray()
         num_detected = 0
         
@@ -235,6 +235,7 @@ class objectDetect(Node):
         # detections.sort(key=lambda d: (d['colour'], d['shape']))
         return goals, objects, markers, annotated
 
+    # NO LONGER USED
     def broadcast_transform(self, object, idx):
         transform = TransformStamped()
 
@@ -251,12 +252,60 @@ class objectDetect(Node):
         # Send the transform
         self.tf_broadcaster.sendTransform(transform_stamped)
 
+    # For vision demo only
+    def test(self):
+        # Create some test markers for visualization
+        markers = MarkerArray()
+        test_positions = [
+            [0.3, 0.0, 0.2],
+            [0.4, 0.1, 0.2],
+            [0.5, -0.1, 0.2],
+            [0.6, 0.0, 0.2],
+            [0.7, 0.1, 0.2]
+        ]
+        test_colours = [ObjectColour.RED1, ObjectColour.RED2, ObjectColour.GREEN, ObjectColour.BLUE, ObjectColour.YELLOW]
+        
+        for idx, pos in enumerate(test_positions):
+            Marker_msg = self.make_marker(idx, test_colours[idx], pos, is_bin=(idx==0))
+            markers.markers.append(Marker_msg)
+            
+        objects = LabelledPoseArray()
+        objects.header.stamp = self.get_clock().now().to_msg()
+        objects.header.frame_id = "camera_frame"
+        
+        goals = LabelledPoseArray()
+        goals.header.stamp = self.get_clock().now().to_msg()
+        goals.header.frame_id = "camera_frame"
+        for idx, pos in enumerate(test_positions):
+            if idx == 0:
+                goal = LabelledPose()
+                goal.label = f"{test_colours[idx].name}_{ObjectShape.CYLINDER.name}_{idx+1}_goal"
+                goal.colour = test_colours[idx].name
+                goal.shape = ObjectShape.CYLINDER.name
+                goal.pose.position = Point(x=pos[0], y=pos[1], z=pos[2])
+                goals.poses.append(goal)
+                continue
+            else:
+                object = LabelledPose()
+                object.label = f"{test_colours[idx].name}_{ObjectShape.CYLINDER.name}_{idx+1}"
+                object.colour = test_colours[idx].name
+                object.shape = ObjectShape.CYLINDER.name
+                object.pose.position = Point(x=pos[0], y=pos[1], z=pos[2])
+                objects.poses.append(object)
+
+        goals.poses.append(objects.poses[0])  # First object as goal
+        return goals, objects, markers
+
     def routine_callback(self):
         if (self.cv_image is None):
             self.get_logger().info("No image received. Routine callback skipped.")
             return None
 
         goals, objects, markers, annotated = self.detect_objects(self.color_frame, self.depth_frame)
+        
+        # For demo only without object detection
+        goals, objects, markers = self.test()
+        # #
 
         # Publish detected objects
         self.object_pub.publish(objects)
