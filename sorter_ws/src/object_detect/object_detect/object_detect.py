@@ -11,6 +11,8 @@ from sensor_msgs.msg import Image, CameraInfo
 from geometry_msgs.msg import TransformStamped, PointStamped, Pose, Point
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
+from interfaces.msg import LabelledPoseArray, LabelledPose
+from visualization_msgs.msg import Marker, MarkerArray
 
 from enum import Enum
 
@@ -56,11 +58,16 @@ class objectDetect(Node):
         self.point_cloud_sub = self.create_subscription( Image, '/camera/camera/aligned_depth_to_color/image_raw', self.depth_img_callback, 10)
         self.cam_info_sub = self.create_subscription( CameraInfo, '/camera/camera/aligned_depth_to_color/camera_info', self.camera_info_callback,10)
         self.intrinsics = None
-        self.depth_image = None
+        
 
         # Timer definitions
-        self.routine_timer = self.create_timer(0.05, self.routine_callback)
+        self.routine_timer = self.create_timer(1, self.routine_callback)
 
+        # Publishers
+        self.object_pub = self.create_publisher(LabelledPoseArray, "/base/objects/labelled_pose_array", 10)
+        self.goal_pub = self.create_publisher(LabelledPoseArray, "/base/objects/labelled_pose_array", 10) 
+        self.marker_pub = self.create_publisher(MarkerArray, "/base/objects/markers", 10)
+        
         # Transformation Interface
         self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
         self.tf_buffer = Buffer()
@@ -68,6 +75,7 @@ class objectDetect(Node):
 
         # General Variables
         self.cv_image = None
+        self.depth_image = None
         self.mask = None
         self.cv_bridge = CvBridge()
 
@@ -98,7 +106,7 @@ class objectDetect(Node):
         except Exception as e:
             self.get_logger().error(f"Error in colour_img_callback: {str(e)}")
 
-    # This gets depth_frame aligned with RGB image
+    # This gets depth_image aligned with RGB image
     def depth_img_callback(self, msg):
         try:
             self.depth_image = self.cv_bridge.imgmsg_to_cv2(msg, msg.encoding)
@@ -131,16 +139,50 @@ class objectDetect(Node):
         is_bin = (area > MIN_BIN_AREA_THRESHOLD)
         
         return shape, is_bin
-        
-    def find_objects(self, colour_img, depth_img):
-        if self.cv_image is None:
-            return None
+    
+    def make_marker(self, idx, colour_range, position, is_bin):
+        Marker_msg = Marker()
+        Marker_msg.header.frame_id = "camera_frame"
+        Marker_msg.header.stamp = self.get_clock().now().to_msg()
+        Marker_msg.ns = "detected_objects"
+        Marker_msg.id = idx
+        Marker_msg.type = Marker.SPHERE
+        Marker_msg.action = Marker.ADD
+        Marker_msg.pose.position = Point(x=position[0], y=position[1], z=position[2])
+        Marker_msg.pose.orientation.w = 1.0
+        Marker_msg.scale.x = 0.1 if is_bin else 0.05
+        Marker_msg.scale.y = 0.1 if is_bin else 0.05
+        Marker_msg.scale.z = 0.1 if is_bin else 0.05
+        Marker_msg.color.a = 1.0
 
+        # colour_low = self.hsv_to_rgb(colour_range.value[0])
+        # colour_high = self.hsv_to_rgb(colour_range.value[1])
+        # Marker_msg.color.b = (colour_low[0]+colour_high[0])/(2*255)
+        # Marker_msg.color.g = (colour_low[1]+colour_high[1])/(2*255)
+        # Marker_msg.color.r = (colour_low[2]+colour_high[2])/(2*255)
+
+        Marker_msg.color.r = 255.0 if colour_range in [ObjectColour.RED1, ObjectColour.RED2, ObjectColour.YELLOW] else 0.0
+        Marker_msg.color.g = 255.0 if colour_range in [ObjectColour.GREEN, ObjectColour.YELLOW] else 0.0
+        Marker_msg.color.b = 255.0 if colour_range == ObjectColour.BLUE else 0.0
+        return Marker_msg
+        
+    def detect_objects(self, colour_img, depth_img):
+        # Initialize msgs
+        objects = LabelledPoseArray()
+        objects.header.stamp = self.get_clock().now().to_msg()
+        objects.header.frame_id = "camera_frame"
+        goals = LabelledPoseArray()
+        goals.header.stamp = self.get_clock().now().to_msg()
+        goals.header.frame_id = "camera_frame"
+        markers = MarkerArray()
+        num_detected = 0
+        
+        if self.cv_image is None:
+            return goals, objects, markers, None
+        annotated = colour_img.copy()
+        
         # Convert BGR to HSV
         hsv_image = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2HSV)
-        
-        detections = []
-        annotated = colour_img.copy()
 
         # Define area thresholds # To be project parameters
         min_area = 500
@@ -150,6 +192,8 @@ class objectDetect(Node):
         for colour_range in ObjectColour:
             mask = cv2.inRange(hsv_image, colour_range.lower, colour_range.upper)
             # MIGHT NEED TO ADD MORPHOLOGICAL OPERATIONS HERE
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8))
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5), np.uint8))
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             for contour in contours:
@@ -168,12 +212,25 @@ class objectDetect(Node):
                     if global_position is not None:
                         # Append the object to the list
                         shape, is_bin = self.classify_shape(contour)
-                        detections.append({
-                            'colour': colour_range.name,
-                            'shape': shape.name,
-                            'is_bin': is_bin,  
-                            'position': global_position
-                        })
+                        num_detected += 1
+                        if is_bin:
+                            goal = LabelledPose()
+                            goal.label = f"{colour_range.name}_{shape.name}_{num_detected}_goal"
+                            goal.colour = colour_range.name
+                            goal.shape = shape.name
+                            goal.pose.position = Point(x=global_position[0], y=global_position[1], z=global_position[2])
+                            goals.poses.append(goal)
+                        else:
+                            object = LabelledPose()
+                            object.label = f"{colour_range.name}_{shape.name}_{num_detected}"
+                            object.colour = colour_range.name
+                            object.shape = shape.name
+                            object.pose.position = Point(x=global_position[0], y=global_position[1], z=global_position[2])
+                            objects.poses.append(object)
+                            
+                        # Create and append marker for visualization
+                        Marker_msg = self.make_marker(num_detected, colour_range, global_position, is_bin)
+                        markers.markers.append(Marker_msg)
                         
                     # Show the mask image
                     cv2.imshow("Mask", mask)
@@ -183,9 +240,10 @@ class objectDetect(Node):
                     cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
 
         # Sort detections by colour and shape for consistent ordering
-        detections.sort(key=lambda d: (d['colour'], d['shape']))
-        return detections, annotated
-    
+        # detections.sort(key=lambda d: (d['colour'], d['shape']))
+        return goals, objects, markers, annotated
+
+    # NO LONGER USED
     def broadcast_transform(self, object, idx):
         transform = TransformStamped()
 
@@ -193,7 +251,7 @@ class objectDetect(Node):
         # idx for distinguishing multiple objects of same type
         transform_stamped = TransformStamped()
         transform_stamped.header.stamp = self.get_clock().now().to_msg()
-        transform_stamped.header.frame_id = "camera_color_optical_frame"
+        transform_stamped.header.frame_id = "camera_frame"
         transform_stamped.child_frame_id = f'{object.colour}_{object.shape}_{idx}'
 
         # Set translation
@@ -202,15 +260,74 @@ class objectDetect(Node):
         # Send the transform
         self.tf_broadcaster.sendTransform(transform_stamped)
 
+    def hsv_to_rgb(self, hsv_color):
+        hsv_color = np.array(hsv_color, dtype=np.float32) / np.array([180.0, 255.0, 255.0])
+        rgb_color = cv2.cvtColor(np.uint8([[hsv_color]]), cv2.COLOR_HSV2RGB)[0][0]
+        return rgb_color.astype(np.float32) / 255.0
+
+    # For vision demo only
+    def test(self):
+        # Create some test markers for visualization
+        markers = MarkerArray()
+        test_positions = [
+            [1.2, 0.4, -0.2],
+            [1.2, 0.2, -0.2],
+            [1.2, -0.1, -0.2],
+            [1.2, -0.3, -0.2],
+            [1.2, 0.0, -0.2]
+        ]
+        test_colours = [ObjectColour.RED1, ObjectColour.RED2, ObjectColour.GREEN, ObjectColour.BLUE, ObjectColour.YELLOW]
+        
+        for idx, pos in enumerate(test_positions):
+            Marker_msg = self.make_marker(idx, test_colours[idx], pos, is_bin=(idx==0))
+            markers.markers.append(Marker_msg)
+            
+        objects = LabelledPoseArray()
+        objects.header.stamp = self.get_clock().now().to_msg()
+        objects.header.frame_id = "camera_frame"
+        
+        goals = LabelledPoseArray()
+        goals.header.stamp = self.get_clock().now().to_msg()
+        goals.header.frame_id = "camera_frame"
+        for idx, pos in enumerate(test_positions):
+            if idx == 0:
+                goal = LabelledPose()
+                goal.label = f"{test_colours[idx].name}_{ObjectShape.CYLINDER.name}_{idx+1}_goal"
+                goal.colour = test_colours[idx].name
+                goal.shape = ObjectShape.CYLINDER.name
+                goal.pose.position = Point(x=pos[0], y=pos[1], z=pos[2])
+                goals.poses.append(goal)
+                continue
+            else:
+                object = LabelledPose()
+                object.label = f"{test_colours[idx].name}_{ObjectShape.CYLINDER.name}_{idx+1}"
+                object.colour = test_colours[idx].name
+                object.shape = ObjectShape.CYLINDER.name
+                object.pose.position = Point(x=pos[0], y=pos[1], z=pos[2])
+                objects.poses.append(object)
+
+        goals.poses.append(objects.poses[0])  # First object as goal
+        return goals, objects, markers
+
     def routine_callback(self):
         if (self.cv_image is None):
             self.get_logger().info("No image received. Routine callback skipped.")
-            return None
-        
-        detections, annotated = self.detect_objects(self.color_frame, self.depth_frame)
+            # return None
 
-        for detection, idx in enumerate(detections):
-            self.broadcast_transform(detection, idx)
+        goals, objects, markers, annotated = self.detect_objects(self.cv_image, self.depth_image)
+        
+        # For demo only without object detection
+        goals, objects, markers = self.test()
+        # #
+
+        # Publish detected objects
+        self.object_pub.publish(objects)
+        self.goal_pub.publish(goals)
+        self.marker_pub.publish(markers)
+
+        if annotated is not None:
+            cv2.imshow('annotated', annotated)
+            cv2.waitKey(1)
         return
 
 def main():
