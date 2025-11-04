@@ -21,6 +21,7 @@ Planner::Planner() : Node("planner") {
         generateCollisionObject(2.4, 0.04, 1.0, 0.85, -0.30, 0.5, frame_id, "backWall"),
         generateCollisionObject(0.04, 1.2, 1.0, -0.30, 0.25, 0.5, frame_id, "sideWall"),
         generateCollisionObject(2.4, 1.2, 0.04, 0.85, 0.25, -0.02, frame_id, "table"),
+        // generateCollisionObject(2.4, 1.2, 0.04, 0.85, 0.25, 0.8, frame_id, "roof"),
     };
     
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
@@ -43,13 +44,21 @@ void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::R
     RCLCPP_INFO(this->get_logger(), "Received Move Request.");
     if (!grabbed_home_pose) {
         home_pose = move_group_interface->getCurrentPose().pose;
+        home_pose.orientation.x = 1.0;
+        home_pose.orientation.y = 0.0;
+        home_pose.orientation.z = 0.0;
+        home_pose.orientation.w = 0.0;
         grabbed_home_pose = true;
     }
+    geometry_msgs::msg::Pose target_pose;
+    target_pose.orientation = home_pose.orientation;
+    target_pose.position = req->start_pose.position;
     move_group_interface->stop();
-    move(res, req->start_pose);
+    move(res, target_pose);
     RCLCPP_INFO(this->get_logger(), "At Start Pose.");
     grasp();
-    move(res, req->goal_pose);
+    target_pose.position = req->goal_pose.position;
+    move(res, target_pose);
     RCLCPP_INFO(this->get_logger(), "At Goal Pose.");
     ungrasp();
     asyncMoveHome();
@@ -57,6 +66,10 @@ void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::R
 
 bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res,
                    const geometry_msgs::msg::Pose &target_pose) {
+    RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f, w: %f", target_pose.orientation.x, 
+                                                                  target_pose.orientation.y,
+                                                                  target_pose.orientation.z,
+                                                                  target_pose.orientation.w);
     if (move_group_interface->setPoseTarget(target_pose)) {
         auto ret = move_group_interface->move();
         if (ret == moveit::core::MoveItErrorCode::SUCCESS) {
@@ -92,13 +105,30 @@ void Planner::setPathConstraints() {
     // Lock wrist 2 link to simplify path planning
     moveit_msgs::msg::Constraints constraints;
     moveit_msgs::msg::JointConstraint wrist_2_constraint;
-    wrist_2_constraint.joint_name = "wrist_2_link";
+    wrist_2_constraint.joint_name = "wrist_2_joint";
     wrist_2_constraint.position = -M_PI / 2;
     wrist_2_constraint.tolerance_above = 0.05;
     wrist_2_constraint.tolerance_below = 0.05;
     wrist_2_constraint.weight = 0;
+
+    moveit_msgs::msg::JointConstraint wrist_3_constraint;
+    wrist_3_constraint.joint_name = "wrist_1_joint";
+    wrist_3_constraint.position = -3 * M_PI / 4.0;
+    wrist_3_constraint.tolerance_above = M_PI / 4.0;
+    wrist_3_constraint.tolerance_below = M_PI / 4.0;
+    wrist_3_constraint.weight = 0;
+
+    moveit_msgs::msg::JointConstraint elbow_constraint;
+    elbow_constraint.joint_name = "elbow_joint";
+    elbow_constraint.position = M_PI / 2.0;
+    elbow_constraint.tolerance_above = M_PI / 2.0;
+    elbow_constraint.tolerance_below = 0.0;
+    elbow_constraint.weight = 0;
+
     constraints.joint_constraints.push_back(wrist_2_constraint);
-    // move_group_interface->setPathConstraints(constraints);
+    constraints.joint_constraints.push_back(wrist_3_constraint);
+    constraints.joint_constraints.push_back(elbow_constraint);
+    move_group_interface->setPathConstraints(constraints);
 }
 
 moveit_msgs::msg::CollisionObject Planner::generateCollisionObject(float sx,float sy, float sz, float x, float y, float z, std::string frame_id, std::string id) {
