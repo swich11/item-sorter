@@ -15,6 +15,7 @@ Planner::Planner() : Node("planner") {
 
     planning_scene_monitor = std::make_unique<planning_scene_monitor::PlanningSceneMonitor>(std::shared_ptr<rclcpp::Node>(this), "robot_description");
 
+
     std::string frame_id = move_group_interface->getPlanningFrame();
 
     std::vector<moveit_msgs::msg::CollisionObject> collision_objects = {
