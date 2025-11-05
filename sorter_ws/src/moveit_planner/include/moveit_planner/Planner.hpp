@@ -12,6 +12,7 @@
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 #include <moveit_msgs/msg/planning_scene.h>
 #include <geometry_msgs/msg/pose.hpp>
+#include 
 
 
 #include "interfaces/srv/move.hpp"
@@ -48,6 +49,8 @@ class Planner : public rclcpp::Node {
         std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_interface;
 
         rclcpp::Service<interfaces::srv::Move>::SharedPtr move_server;
+        rclcpp::Publisher<std_msgs::msg::String>::SharedPtr arduino_pub;    // publisher to send commands to Arduino
+
         geometry_msgs::msg::Pose home_pose;
         bool grabbed_home_pose;
 };

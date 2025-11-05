@@ -36,6 +36,7 @@ Planner::Planner() : Node("planner") {
 
     grabbed_home_pose = false;
     move_server = this->create_service<interfaces::srv::Move>("/moveit_planner/move", std::bind(&Planner::moveServiceCallback, this, _1, _2));
+    arduino_pub_ = this->create_publisher<std_msgs::msg::String>("arduino_cmds", 10);   // initialize publisher to send commands to Arduino
     RCLCPP_INFO(this->get_logger(), "Planner Launched. Ready for Commands");
 }
 
@@ -90,14 +91,21 @@ void Planner::asyncMoveHome() {
     move_group_interface->asyncMove();
 }
 
-// TODO: Add grasping
+// sends serial mesg "close" over port to teensy
 bool Planner::grasp() {
-    sleep(3);
+    std_msgs::msg::String msg;
+    msg.data = "close";
+    arduino_pub_->publish(msg);
+
     return true;
 }
 
+// sends serial msg "open" over port to teensy
 bool Planner::ungrasp() {
-    sleep(3);
+    std_msgs::msg::String msg;
+    msg.data = "open";
+    arduino_pub_->publish(msg);
+
     return true;
 }
 
