@@ -32,4 +32,5 @@ void loop() {
       Serial.print("Unknown command: ");
       Serial.println(cmd);
     }
+  }
 }

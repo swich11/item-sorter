@@ -36,7 +36,7 @@ Planner::Planner() : Node("planner") {
 
     grabbed_home_pose = false;
     move_server = this->create_service<interfaces::srv::Move>("/moveit_planner/move", std::bind(&Planner::moveServiceCallback, this, _1, _2));
-    arduino_pub_ = this->create_publisher<std_msgs::msg::String>("arduino_cmds", 10);   // initialize publisher to send commands to Arduino
+    arduino_pub = this->create_publisher<std_msgs::msg::String>("arduino_cmds", 10);   // initialize publisher to send commands to Arduino
     RCLCPP_INFO(this->get_logger(), "Planner Launched. Ready for Commands");
 }
 
@@ -92,21 +92,17 @@ void Planner::asyncMoveHome() {
 }
 
 // sends serial mesg "close" over port to teensy
-bool Planner::grasp() {
+void Planner::grasp() {
     std_msgs::msg::String msg;
     msg.data = "close";
-    arduino_pub_->publish(msg);
-
-    return true;
+    arduino_pub->publish(msg);
 }
 
 // sends serial msg "open" over port to teensy
-bool Planner::ungrasp() {
+void Planner::ungrasp() {
     std_msgs::msg::String msg;
     msg.data = "open";
-    arduino_pub_->publish(msg);
-
-    return true;
+    arduino_pub->publish(msg);
 }
 
 void Planner::setPathConstraints() {

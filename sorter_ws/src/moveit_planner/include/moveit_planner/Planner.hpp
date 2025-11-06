@@ -12,7 +12,6 @@
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 #include <moveit_msgs/msg/planning_scene.h>
 #include <geometry_msgs/msg/pose.hpp>
-#include 
 
 
 #include "interfaces/srv/move.hpp"
@@ -38,9 +37,9 @@ class Planner : public rclcpp::Node {
 
         void asyncMoveHome();
 
-        bool grasp();
+        void grasp();
 
-        bool ungrasp();
+        void ungrasp();
 
         void setPathConstraints();
 
