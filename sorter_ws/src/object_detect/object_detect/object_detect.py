@@ -23,11 +23,11 @@ MIN_BIN_AREA_THRESHOLD = 2000 # TO ADJUST
 # Define object colours with their HSV ranges
 # Simply need to add more colours here if needed no other code changes required
 class ObjectColour(Enum):
-    RED1    = ((0, 120, 120), (10, 255, 255))
-    RED2    = ((170, 120, 120), (180, 255, 255))
-    # GREEN   = ((35, 120, 120), (85, 255, 255))
-    BLUE    = ((90, 110, 110), (140, 255, 255))
-    # YELLOW  = ((15, 120, 120), (35, 255, 255))
+    RED1    = ((0, 70, 50), (10, 255, 255))
+    RED2    = ((170, 70, 50), (180, 255, 255))
+    # GREEN   = ((35, 40, 40), (85, 255, 255))
+    BLUE    = ((100, 85, 85), (140, 255, 255))
+    # YELLOW  = ((15, 100, 100), (35, 255, 255))
 
     @property
     def lower(self):
@@ -113,31 +113,29 @@ class objectDetect(Node):
             self.get_logger().error(f"Error in depth_img_callback: {str(e)}")
 
     def pixel_to_global(self, pixel_pt):
-        if self.depth_image is not None and self.intrinsics is not None:
+        if self.depth_image is not None and self.intrinsics is not None and pixel_pt[0]<self.intrinsics.height and pixel_pt[1]<self.intrinsics.width:
             [x,y,z] = rs.rs2_deproject_pixel_to_point(self.intrinsics, (pixel_pt[0],pixel_pt[1] ), self.depth_image[pixel_pt[0],pixel_pt[1] ]*0.001)
             return [x, y, z]
         else:
             return None
     
     # TODO: Implement shape classification
+    # Point cloud method to classify shape or 
+    # ML based method could be implemented here
     def classify_shape(self, contour):
-        # Polygonal approximation
         peri = cv2.arcLength(contour, True)
-        approx = cv2.approxPolyDP(contour, 0.02 * peri, True) # May need to find face among approximations
+        approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
         vertices = len(approx)
         area = cv2.contourArea(contour)
 
         shape = ObjectShape.UNKNOWN
-        if vertices == 3:
-            shape = ObjectShape.TRIANGULAR_PRISM
-        elif vertices == 4:
-            shape = ObjectShape.SQUARE_PRISM
-        elif 5 <= vertices <= 6:
-            shape = ObjectShape.HEXAGONAL_PRISM
+        zero_mask = np.zeros((self.intrinsics.height, self.intrinsics.width), dtype=np.uint8)
+        mask = cv2.drawContours(zero_mask, [contour], -1, (0, 255, 0), -1)
+        shape, _, _ = self.fit_shape(self.depth_image, mask)
             
-        is_bin = (area > MIN_BIN_AREA_THRESHOLD)
+        is_bin = self.is_bin_helper(contour, self.depth_image, mask)
         
-        return shape, is_bin
+        return shape, is_bin, approx
     
     def make_marker(self, idx, colour_range, position, is_bin):
         Marker_msg = Marker()
@@ -160,8 +158,10 @@ class objectDetect(Node):
         # Marker_msg.color.g = (colour_low[1]+colour_high[1])/(2*255)
         # Marker_msg.color.r = (colour_low[2]+colour_high[2])/(2*255)
 
-        Marker_msg.color.r = 255.0 if colour_range in [ObjectColour.RED1, ObjectColour.RED2, ObjectColour.YELLOW] else 0.0
-        Marker_msg.color.g = 255.0 if colour_range in [ObjectColour.GREEN, ObjectColour.YELLOW] else 0.0
+        # Marker_msg.color.r = 255.0 if colour_range in [ObjectColour.RED1, ObjectColour.RED2, ObjectColour.YELLOW] else 0.0
+        Marker_msg.color.r = 255.0 if colour_range in [ObjectColour.RED1, ObjectColour.RED2] else 0.0
+        # Marker_msg.color.g = 255.0 if colour_range in [ObjectColour.GREEN, ObjectColour.YELLOW] else 0.0
+        Marker_msg.color.g = 0.0
         Marker_msg.color.b = 255.0 if colour_range == ObjectColour.BLUE else 0.0
         return Marker_msg
     
@@ -226,7 +226,7 @@ class objectDetect(Node):
                     global_position = self.pixel_to_global([cX, cY])
                     if global_position is not None:
                         # Append the object to the list
-                        shape, is_bin = self.classify_shape(contour)
+                        shape, is_bin, _ = self.classify_shape(contour)
                         num_detected += 1
                         if is_bin:
                             goals.poses.append(self.make_goal(num_detected, colour_range, shape, global_position))
@@ -248,10 +248,10 @@ class objectDetect(Node):
         # detections.sort(key=lambda d: (d['colour'], d['shape']))
         return goals, objects, markers, annotated
 
-    def hsv_to_rgb(self, hsv_color):
-        hsv_color = np.array(hsv_color, dtype=np.float32) / np.array([180.0, 255.0, 255.0])
-        rgb_color = cv2.cvtColor(np.uint8([[hsv_color]]), cv2.COLOR_HSV2RGB)[0][0]
-        return rgb_color.astype(np.float32) / 255.0
+    # def hsv_to_rgb(self, hsv_color):
+    #     hsv_color = np.array(hsv_color, dtype=np.float32) / np.array([180.0, 255.0, 255.0])
+    #     rgb_color = cv2.cvtColor(np.uint8([[hsv_color]]), cv2.COLOR_HSV2RGB)[0][0]
+    #     return rgb_color.astype(np.float32) / 255.0
 
     # For vision demo only
     def test(self):
@@ -305,7 +305,7 @@ class objectDetect(Node):
         goals, objects, markers, annotated = self.detect_objects(self.cv_image, self.depth_image)
         
         # For demo only without object detection
-        goals, objects, markers = self.test()
+        # goals, objects, markers = self.test()
         # #
 
         # Publish detected objects
