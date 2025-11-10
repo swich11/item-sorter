@@ -18,9 +18,9 @@ MIN_BIN_DIM_THRESHOLD = 0.06 # in meters
 class ObjectColour(Enum):
     RED1    = ((0, 70, 50), (10, 255, 255))
     RED2    = ((170, 70, 50), (180, 255, 255))
-    GREEN   = ((35, 40, 40), (85, 255, 255))
-    BLUE    = ((90, 50, 50), (140, 255, 255))
-    YELLOW  = ((15, 100, 100), (35, 255, 255))
+    # GREEN   = ((35, 40, 40), (85, 255, 255))
+    BLUE    = ((100, 85, 85), (140, 255, 255))
+    # YELLOW  = ((15, 100, 100), (35, 255, 255))
 
     @property
     def lower(self):
@@ -120,9 +120,13 @@ class RealSenseD435i:
     
     # Helper gets points position respective to colour camera    
     def pixel_to_global(self, depth_image, pixel_pt):
-        if depth_image is not None and self.intrinsics is not None:
+        if depth_image is not None and self.intrinsics is not None and pixel_pt[0]<self.intrinsics.height and pixel_pt[1]<self.intrinsics.width:
             [x,y,z] = rs.rs2_deproject_pixel_to_point(self.intrinsics, (pixel_pt[0],pixel_pt[1] ), depth_image[pixel_pt[0],pixel_pt[1] ]*0.001)
+            print("fine")
             return [x, y, z]
+        elif pixel_pt[0]>self.intrinsics.width or pixel_pt[1]>self.intrinsics.height:
+            print("Pixel out of bounds")
+            return None
         else:
             return None
     
@@ -164,16 +168,16 @@ class RealSenseD435i:
         mask = cv2.drawContours(zero_mask, [contour], -1, (0, 255, 0), -1)
         shape, _, _ = self.fit_shape(depth_image, mask)
             
-        is_bin = self.is_bin_helper(contour, depth_image)
+        is_bin = self.is_bin_helper(contour, depth_image, mask)
         
         return shape, is_bin, approx
     
     # Helper to determine if contour likely represents a bin
     # is vulnerable to occlusion and angle of view
     # good enough for before using point cloud method for more accurate info
-    def is_bin_helper(self, contour, depth_img):
+    def is_bin_helper(self, contour, depth_img, mask):
         # Get average depth inside the contour
-        depth_values = depth_img[contour == 255]
+        depth_values = depth_img[mask == 255]
         depth_values = depth_values[depth_values > 0]
         if len(depth_values) == 0:
             return False
@@ -266,6 +270,8 @@ class RealSenseD435i:
         return shape, center, n_faces
     
     def detect_objects(self, colour_img, depth_img):
+        print(self.intrinsics)
+        # print(depth_img)
         # Initialize msgs
         objects = []
         num_detected = 0
@@ -309,7 +315,7 @@ class RealSenseD435i:
                             
                         # Create and append marker for visualization
                         cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
-                        cv2.putText(annotated, f"{colour_range.name}-{shape.name}--({global_position})", (cX + 10, cY - 10),
+                        cv2.putText(annotated, f"{colour_range.name}-{shape.name}-{is_bin}-({global_position})", (cX + 10, cY - 10),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                         
                         objects.append({
