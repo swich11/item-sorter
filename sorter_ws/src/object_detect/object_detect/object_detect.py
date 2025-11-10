@@ -4,6 +4,7 @@ import tf2_ros
 import os
 import numpy as np
 import pyrealsense2 as rs
+import open3d as o3d
 from cv_bridge import CvBridge, CvBridgeError
 
 from rclpy.node import Node
@@ -123,6 +124,9 @@ class objectDetect(Node):
     # Point cloud method to classify shape or 
     # ML based method could be implemented here
     def classify_shape(self, contour):
+        if self.intrinsics is None:
+            return ObjectShape.UNKNOWN, False, None
+        
         peri = cv2.arcLength(contour, True)
         approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
         vertices = len(approx)
@@ -136,6 +140,109 @@ class objectDetect(Node):
         is_bin = self.is_bin_helper(contour, self.depth_image, mask)
         
         return shape, is_bin, approx
+    
+    # Helper to determine if contour likely represents a bin
+    # is vulnerable to occlusion and angle of view
+    # good enough for before using point cloud method for more accurate info
+    def is_bin_helper(self, contour, depth_img, mask):
+        if self.intrinsics is None:
+            return False
+        
+        # Get average depth inside the contour
+        depth_values = depth_img[mask == 255]
+        depth_values = depth_values[depth_values > 0]
+        if len(depth_values) == 0:
+            return False
+        Z = np.median(depth_values) * 0.001  # convert mm → m
+
+        # Get bounding box in pixels
+        x, y, w, h = cv2.boundingRect(contour)
+
+        # Convert pixel distance to meters at depth Z
+        width_m = (w / self.intrinsics.fx) * Z
+        height_m = (h / self.intrinsics.fy) * Z
+        
+        return (width_m > 0.06 or height_m > 0.06)
+    
+    # Convert masked depth image to an Open3D point cloud.
+    def mask_to_pointcloud(self, depth_frame, mask):
+        if self.intrinsics is None:
+            return None
+        
+        indices = np.where(mask > 0)
+        z = depth_frame[indices] / 1000.0  # mm → m
+        u = indices[1]
+        v = indices[0]
+        x = (u - self.intrinsics.ppx) * z / self.intrinsics.fx
+        y = (v - self.intrinsics.ppy) * z / self.intrinsics.fy
+
+        points = np.vstack((x, y, z)).T
+        cloud = o3d.geometry.PointCloud()
+        cloud.points = o3d.utility.Vector3dVector(points)
+        return cloud
+
+    # Estimate number of flat faces using convex hull.
+    def count_hull_faces(self, pcd):
+        try:
+            hull, _ = pcd.compute_convex_hull()
+            triangles = np.asarray(hull.triangles)
+            vertices = np.asarray(hull.vertices)
+            verts = np.asarray(hull.vertices)
+            mesh = hull
+
+            # Compute normals for each triangle
+            triangle_normals = np.asarray(mesh.triangle_normals)
+
+            # Cluster normals by angle similarity
+            clusters = []
+            threshold = np.deg2rad(15)  # within 15 degrees
+            for n in triangle_normals:
+                matched = False
+                for c in clusters:
+                    if np.arccos(np.clip(np.dot(n, c), -1.0, 1.0)) < threshold:
+                        matched = True
+                        break
+                if not matched:
+                    clusters.append(n)
+            return len(clusters)
+        except Exception:
+            return 0
+
+    ### Fit geometric model to classify prism shape.
+    def fit_shape(self, depth_frame, mask):
+        pcd = self.mask_to_pointcloud(depth_frame, mask)
+        if len(pcd.points) < 100:
+            return ObjectShape.UNKNOWN, None, 0
+
+        # Clean noise
+        pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=1.0)
+
+        # Get bounding box info
+        bbox = pcd.get_oriented_bounding_box()
+        extents = bbox.extent
+        aspect = np.sort(extents) / np.max(extents)
+
+        # Compute convex hull and count flat faces
+        n_faces = self.count_hull_faces(pcd)
+
+        # --- Infer shape based on faces + proportions ---
+        if n_faces <= 0:
+            shape = ObjectShape.UNKNOWN
+        elif n_faces <= 6:
+            shape = ObjectShape.TRIANGULAR_PRISM
+        elif n_faces <= 8:
+            shape = ObjectShape.SQUARE_PRISM
+        elif n_faces <= 12:
+            shape = ObjectShape.HEXAGONAL_PRISM
+        else:
+            shape = ObjectShape.UNKNOWN
+            
+        # Catch flat objects
+        if aspect[0] < 0.2:
+            shape = ObjectShape.UNKNOWN
+
+        center = bbox.center
+        return shape, center, n_faces
     
     def make_marker(self, idx, colour_range, position, is_bin):
         Marker_msg = Marker()
