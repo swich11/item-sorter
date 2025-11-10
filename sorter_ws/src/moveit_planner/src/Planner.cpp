@@ -22,7 +22,6 @@ Planner::Planner() : Node("planner") {
         generateCollisionObject(2.4, 0.04, 1.0, 0.85, -0.30, 0.5, frame_id, "backWall"),
         generateCollisionObject(0.04, 1.2, 1.0, -0.30, 0.25, 0.5, frame_id, "sideWall"),
         generateCollisionObject(2.4, 1.2, 0.04, 0.85, 0.25, -0.02, frame_id, "table"),
-        // generateCollisionObject(2.4, 1.2, 0.04, 0.85, 0.25, 0.8, frame_id, "roof"),
     };
     
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
@@ -36,6 +35,7 @@ Planner::Planner() : Node("planner") {
     setPathConstraints();
 
     grabbed_home_pose = false;
+    goal_pose_subscription = this->create_subscription<geometry_msgs::msg::Pose>("/brain/move/pose", std::bind(&Planner::goalPoseCallback, this, _1));
     move_server = this->create_service<interfaces::srv::Move>("/moveit_planner/move", std::bind(&Planner::moveServiceCallback, this, _1, _2));
     RCLCPP_INFO(this->get_logger(), "Planner Launched. Ready for Commands");
 }
@@ -50,40 +50,63 @@ void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::R
         home_pose.orientation.z = 0.0;
         home_pose.orientation.w = 0.0;
         grabbed_home_pose = true;
+        
+        // For now unless we add pose rotation
+        goal_pose.orientation = home_pose.orientation;
     }
-    geometry_msgs::msg::Pose target_pose;
-    target_pose.orientation = home_pose.orientation;
-    target_pose.position = req->start_pose.position;
     move_group_interface->stop();
-    move(res, target_pose);
-    RCLCPP_INFO(this->get_logger(), "At Start Pose.");
+    move(res);
     grasp();
-    target_pose.position = req->goal_pose.position;
-    move(res, target_pose);
+    RCLCPP_INFO(this->get_logger(), "Got to the pose.");
+    // Second Move (will fix this)
+    move(res);
     RCLCPP_INFO(this->get_logger(), "At Goal Pose.");
     ungrasp();
     asyncMoveHome();
 }
 
-bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res,
-                   const geometry_msgs::msg::Pose &target_pose) {
-    RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f, w: %f", target_pose.orientation.x, 
-                                                                  target_pose.orientation.y,
-                                                                  target_pose.orientation.z,
-                                                                  target_pose.orientation.w);
-    if (move_group_interface->setPoseTarget(target_pose)) {
-        auto ret = move_group_interface->move();
-        if (ret == moveit::core::MoveItErrorCode::SUCCESS) {
-            res->success = true;
-        } else {
-            res->success = false;
-            res->message = "Move Failed: " + moveit::core::error_code_to_string(ret);
-            return false;
+void Planner::goalPoseCallback(const geometry_msgs::msg::Pose &pose) {
+    goal_pose.position = pose.position;
+}
+
+bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res) {
+    RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f, w: %f", goal_pose.orientation.x, 
+                                                                  goal_pose.orientation.y,
+                                                                  goal_pose.orientation.z,
+                                                                  goal_pose.orientation.w);
+    moveit::planning_interface::MoveGroupInterface::Plan plan;
+    geometry_msgs::msg::Pose tracked_goal = home_pose; // Anything different to the goal_pose works
+    while (!isPoseClose(move_group_interface->getCurrentPose().pose, goal_pose)) {
+        if (!isPoseClose(tracked_goal, goal_pose)) {
+            // Change goal when the object moves
+            tracked_goal = goal_pose;
+            move_group_interface->setPoseTarget(tracked_goal);
+            move_group_interface->stop();
+            auto ret = move_group_interface->plan(plan);
+            if (ret != moveit::core::MoveItErrorCode::SUCCESS) {
+                RCLCPP_ERROR(this->get_logger(), "Planning Failed :(.");
+                res->success = false;
+                res->message = "Planning failed during move: " + moveit::core::error_code_to_string(ret);
+                return false;
+            }
+            move_group_interface->asyncExecute(plan);
         }
-    } else {
-        return false;
     }
+    res->success = true;
     return true;
+    // if (move_group_interface->setPoseTarget(goal_pose)) {
+    //     auto ret = move_group_interface->move();
+    //     if (ret == moveit::core::MoveItErrorCode::SUCCESS) {
+    //         res->success = true;
+    //     } else {
+    //         res->success = false;
+    //         res->message = "Move Failed: " + moveit::core::error_code_to_string(ret);
+    //         return false;
+    //     }
+    // } else {
+    //     return false;
+    // }
+    // return true;
 }
 
 void Planner::asyncMoveHome() {
@@ -168,6 +191,30 @@ geometry_msgs::msg::Pose Planner::generatePoseMsg(float x, float y, float z, flo
     pose.position.z = z;
     return pose;
 }
+
+
+bool Planner::isPoseClose(const geometry_msgs::msg::Pose &a,
+                          const geometry_msgs::msg::Pose &b) {    
+    return norm(a.position, b.position) < POSITION_PRECISION &&
+           norm(a.orientation, b.orientation) < ORIENTATION_PRECISION;
+}
+
+
+inline double Planner::norm(const geometry_msgs::msg::Point &a,
+                            const geometry_msgs::msg::Point &b) {
+    tf2::Vector3 v1 = tf2::Vector3(a.x, a.y, a.z);
+    tf2::Vector3 v2 = tf2::Vector3(b.x, b.y, b.z);
+    return (v1 - v2).length();
+}
+
+inline double Planner::norm(const geometry_msgs::msg::Quaternion &a,
+                            const geometry_msgs::msg::Quaternion &b) {
+    tf2::Quaternion q1 = tf2::Quaternion(a.x, a.y, a.z, a.w);
+    tf2::Quaternion q2 = tf2::Quaternion(b.x, b.y, b.z, b.w);
+    return q1.angleShortestPath(q2);
+}
+
+
 
 int main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
