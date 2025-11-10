@@ -13,11 +13,12 @@ MIN_BIN_AREA_THRESHOLD = 2000 # TO ADJUST
 
 # Define object colours with their HSV ranges
 # Simply need to add more colours here if needed no other code changes required
+# HOME AND LAB REQUIRE DIFFERENT NUMBERS
 class ObjectColour(Enum):
-    RED1    = ((0, 120, 120), (10, 255, 255))
-    RED2    = ((170, 120, 120), (180, 255, 255))
+    RED1    = ((0, 150, 150), (10, 255, 255))
+    RED2    = ((170, 150, 150), (180, 255, 255))
     # GREEN   = ((35, 120, 120), (85, 255, 255))
-    BLUE    = ((90, 110, 110), (140, 255, 255))
+    BLUE    = ((100, 60, 60), (140, 255, 255))
     # YELLOW  = ((15, 120, 120), (35, 255, 255))
 
     @property

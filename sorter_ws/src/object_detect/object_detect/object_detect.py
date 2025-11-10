@@ -23,11 +23,11 @@ MIN_BIN_AREA_THRESHOLD = 2000 # TO ADJUST
 # Define object colours with their HSV ranges
 # Simply need to add more colours here if needed no other code changes required
 class ObjectColour(Enum):
-    RED1    = ((0, 70, 50), (10, 255, 255))
-    RED2    = ((170, 70, 50), (180, 255, 255))
-    GREEN   = ((35, 40, 40), (85, 255, 255))
-    BLUE    = ((90, 50, 50), (140, 255, 255))
-    YELLOW  = ((15, 100, 100), (35, 255, 255))
+    RED1    = ((0, 120, 120), (10, 255, 255))
+    RED2    = ((170, 120, 120), (180, 255, 255))
+    # GREEN   = ((35, 120, 120), (85, 255, 255))
+    BLUE    = ((90, 110, 110), (140, 255, 255))
+    # YELLOW  = ((15, 120, 120), (35, 255, 255))
 
     @property
     def lower(self):
@@ -59,7 +59,6 @@ class objectDetect(Node):
         self.cam_info_sub = self.create_subscription( CameraInfo, '/camera/camera/aligned_depth_to_color/camera_info', self.camera_info_callback,10)
         self.intrinsics = None
         
-
         # Timer definitions
         self.routine_timer = self.create_timer(1, self.routine_callback)
 
@@ -165,6 +164,22 @@ class objectDetect(Node):
         Marker_msg.color.g = 255.0 if colour_range in [ObjectColour.GREEN, ObjectColour.YELLOW] else 0.0
         Marker_msg.color.b = 255.0 if colour_range == ObjectColour.BLUE else 0.0
         return Marker_msg
+    
+    def make_goal(self, idx, colour_range, shape, position):
+        goal = LabelledPose()
+        goal.label = f"{colour_range.name}_{shape.name}_{idx}_goal"
+        goal.colour = colour_range.name
+        goal.shape = shape.name
+        goal.pose.position = Point(x=position[0], y=position[1], z=position[2])
+        return goal
+    
+    def make_object(self, idx, colour_range, shape, position):
+        object = LabelledPose()
+        object.label = f"{colour_range.name}_{shape.name}_{idx}"
+        object.colour = colour_range.name
+        object.shape = shape.name
+        object.pose.position = Point(x=position[0], y=position[1], z=position[2])
+        return object
         
     def detect_objects(self, colour_img, depth_img):
         # Initialize msgs
@@ -193,7 +208,7 @@ class objectDetect(Node):
             mask = cv2.inRange(hsv_image, colour_range.lower, colour_range.upper)
             # MIGHT NEED TO ADD MORPHOLOGICAL OPERATIONS HERE
             mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8))
-            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5), np.uint8))
+            # mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5), np.uint8))
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             for contour in contours:
@@ -214,19 +229,9 @@ class objectDetect(Node):
                         shape, is_bin = self.classify_shape(contour)
                         num_detected += 1
                         if is_bin:
-                            goal = LabelledPose()
-                            goal.label = f"{colour_range.name}_{shape.name}_{num_detected}_goal"
-                            goal.colour = colour_range.name
-                            goal.shape = shape.name
-                            goal.pose.position = Point(x=global_position[0], y=global_position[1], z=global_position[2])
-                            goals.poses.append(goal)
+                            goals.poses.append(self.make_goal(num_detected, colour_range, shape, global_position))
                         else:
-                            object = LabelledPose()
-                            object.label = f"{colour_range.name}_{shape.name}_{num_detected}"
-                            object.colour = colour_range.name
-                            object.shape = shape.name
-                            object.pose.position = Point(x=global_position[0], y=global_position[1], z=global_position[2])
-                            objects.poses.append(object)
+                            objects.poses.append(self.make_object(num_detected, colour_range, shape, global_position))
                             
                         # Create and append marker for visualization
                         Marker_msg = self.make_marker(num_detected, colour_range, global_position, is_bin)
@@ -242,23 +247,6 @@ class objectDetect(Node):
         # Sort detections by colour and shape for consistent ordering
         # detections.sort(key=lambda d: (d['colour'], d['shape']))
         return goals, objects, markers, annotated
-
-    # NO LONGER USED
-    def broadcast_transform(self, object, idx):
-        transform = TransformStamped()
-
-        # Header info
-        # idx for distinguishing multiple objects of same type
-        transform_stamped = TransformStamped()
-        transform_stamped.header.stamp = self.get_clock().now().to_msg()
-        transform_stamped.header.frame_id = "camera_frame"
-        transform_stamped.child_frame_id = f'{object.colour}_{object.shape}_{idx}'
-
-        # Set translation
-        transform_stamped.transform.translation = Point(x=object.position[0], y=object.position[1], z=object.position[2])
-        
-        # Send the transform
-        self.tf_broadcaster.sendTransform(transform_stamped)
 
     def hsv_to_rgb(self, hsv_color):
         hsv_color = np.array(hsv_color, dtype=np.float32) / np.array([180.0, 255.0, 255.0])
@@ -276,7 +264,7 @@ class objectDetect(Node):
             [1.2, -0.3, -0.2],
             [1.2, 0.0, -0.2]
         ]
-        test_colours = [ObjectColour.RED1, ObjectColour.RED2, ObjectColour.GREEN, ObjectColour.BLUE, ObjectColour.YELLOW]
+        test_colours = [ObjectColour.RED1, ObjectColour.RED2, ObjectColour.RED1, ObjectColour.BLUE, ObjectColour.BLUE]
         
         for idx, pos in enumerate(test_positions):
             Marker_msg = self.make_marker(idx, test_colours[idx], pos, is_bin=(idx==0))
