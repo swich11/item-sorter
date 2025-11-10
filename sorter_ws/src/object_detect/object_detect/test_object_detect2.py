@@ -1,3 +1,5 @@
+# use laptop camera for testing object detection
+
 import numpy as np
 import cv2
 import threading
@@ -58,9 +60,9 @@ class RealSenseD435i:
     def get_image(self):
         return self.last_image
     
-    # TODO: Implement shape classification
-    def classify_shape(self, contour):
-        # Polygonal approximation
+    # OLD shape classifier
+    def classify_shape_polyapprox(self, contour):
+        # Polygonal approximation (Does not work due to struggling differentiating the faces with contours)
         peri = cv2.arcLength(contour, True)
         approx = cv2.approxPolyDP(contour, 0.02 * peri, True) # May need to find face among approximations
         vertices = len(approx)
@@ -73,6 +75,20 @@ class RealSenseD435i:
             shape = ObjectShape.SQUARE_PRISM
         elif 5 <= vertices <= 6:
             shape = ObjectShape.HEXAGONAL_PRISM
+            
+        is_bin = (area > MIN_BIN_AREA_THRESHOLD)
+        
+        return shape, is_bin, approx
+    
+    # TODO: Implement shape classification
+    def classify_shape(self, contour, depth_image):
+        # Polygonal approximation (Does not work due to struggling differentiating the faces with contours)
+        peri = cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, 0.02 * peri, True) # May need to find face among approximations
+        vertices = len(approx)
+        area = cv2.contourArea(contour)
+
+        shape = ObjectShape.UNKNOWN
             
         is_bin = (area > MIN_BIN_AREA_THRESHOLD)
         
@@ -115,7 +131,7 @@ class RealSenseD435i:
                     cY = int(moments['m01'] / moments['m00'])
                     
                     # Convert the pixel coordinates to 3D world coordinates
-                    shape, is_bin, approx = self.classify_shape(contour)
+                    shape, is_bin, approx = self.classify_shape(contour, None)
                     cv2.drawContours(approx_img, [approx], -1, (255,255,255), 2)
                     num_detected += 1
                             
