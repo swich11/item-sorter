@@ -45,8 +45,12 @@ void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::R
     RCLCPP_INFO(this->get_logger(), "Received Move Request.");
     if (!grabbed_home_pose) {
         home_pose = move_group_interface->getCurrentPose().pose;
-        home_pose.orientation.x = 1.0;
-        home_pose.orientation.y = 0.0;
+        RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f, w: %f", home_pose.orientation.x, 
+                                                                      home_pose.orientation.y,
+                                                                      home_pose.orientation.z,
+                                                                      home_pose.orientation.w);
+        home_pose.orientation.x = sqrt(2) / 2.0;
+        home_pose.orientation.y = -sqrt(2) / 2.0;
         home_pose.orientation.z = 0.0;
         home_pose.orientation.w = 0.0;
         grabbed_home_pose = true;
