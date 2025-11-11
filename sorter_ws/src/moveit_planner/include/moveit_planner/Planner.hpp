@@ -46,9 +46,9 @@ class Planner : public rclcpp::Node {
 
         void asyncMoveHome();
 
-        bool grasp();
+        void grasp();
 
-        bool ungrasp();
+        void ungrasp();
 
         void setPathConstraints();
 
@@ -67,6 +67,8 @@ class Planner : public rclcpp::Node {
 
         rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr goal_pose_subscription;
         rclcpp::Service<interfaces::srv::Move>::SharedPtr move_server;
+        rclcpp::Publisher<std_msgs::msg::String>::SharedPtr arduino_pub;    // publisher to send commands to Arduino
+        
         geometry_msgs::msg::Pose goal_pose;
         geometry_msgs::msg::Pose home_pose;
         bool grabbed_home_pose;
