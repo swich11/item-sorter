@@ -25,14 +25,19 @@ ament_target_dependencies(
 )
 install(TARGETS 
   planner
-  DESTINATION lib/${PROJECT_NAME})
+  DESTINATION lib/${PROJECT_NAME}
+)
 
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME}/
+)
 
-  install(DIRECTORY
-    launch
-    DESTINATION share/${PROJECT_NAME}/
-  )
-
+# install python nodes for arduino communication
+install(PROGRAMS
+  scripts/util_arduino_node.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
