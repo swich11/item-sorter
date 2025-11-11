@@ -17,9 +17,6 @@
 struct ItemPose {
     geometry_msgs::msg::Pose pose;
     bool in_queue;
-
-    ItemPose(geometry_msgs::msg::Pose pose)
-        : in_queue(false), pose(pose) {}
 };
 
 

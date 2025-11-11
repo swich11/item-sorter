@@ -35,9 +35,9 @@ Planner::Planner() : Node("planner") {
     setPathConstraints();
 
     grabbed_home_pose = false;
-    goal_pose_subscription = this->create_subscription<geometry_msgs::msg::Pose>("/brain/move/pose", std::bind(&Planner::goalPoseCallback, this, _1));
+    goal_pose_subscription = this->create_subscription<geometry_msgs::msg::Pose>("/brain/move/pose", 10, std::bind(&Planner::goalPoseCallback, this, _1));
     move_server = this->create_service<interfaces::srv::Move>("/moveit_planner/move", std::bind(&Planner::moveServiceCallback, this, _1, _2));
-    arduino_pub = this->create_publisher<std_msgs::msg::String>("arduino_cmds", 10);   // initialize publisher to send commands to Arduino
+    arduino_pub = this->create_publisher<std_msgs::msg::String>("/arduino_cmds", 10);   // initialize publisher to send commands to Arduino
     RCLCPP_INFO(this->get_logger(), "Planner Launched. Ready for Commands");
 }
 
@@ -45,6 +45,7 @@ void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::R
                                   std::shared_ptr<interfaces::srv::Move::Response> res) {
     RCLCPP_INFO(this->get_logger(), "Received Move Request.");
     if (!grabbed_home_pose) {
+        // Initialise the home pose
         home_pose = move_group_interface->getCurrentPose().pose;
         RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f, w: %f", home_pose.orientation.x, 
                                                                       home_pose.orientation.y,
@@ -61,18 +62,20 @@ void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::R
     }
     move_group_interface->stop();
     move(res);
-    grasp();
-    RCLCPP_INFO(this->get_logger(), "Got to the pose.");
-    // Second Move (will fix this)
-    move(res);
-    RCLCPP_INFO(this->get_logger(), "At Goal Pose.");
-    ungrasp();
-    asyncMoveHome();
+    if (req->grasp) {
+        grasp();
+    } else {
+        ungrasp();
+        RCLCPP_INFO(this->get_logger(), "Going home.");
+        asyncMoveHome();
+    }
 }
+
 
 void Planner::goalPoseCallback(const geometry_msgs::msg::Pose &pose) {
     goal_pose.position = pose.position;
 }
+
 
 bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res) {
     RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f, w: %f", goal_pose.orientation.x, 
@@ -99,19 +102,6 @@ bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res) {
     }
     res->success = true;
     return true;
-    // if (move_group_interface->setPoseTarget(goal_pose)) {
-    //     auto ret = move_group_interface->move();
-    //     if (ret == moveit::core::MoveItErrorCode::SUCCESS) {
-    //         res->success = true;
-    //     } else {
-    //         res->success = false;
-    //         res->message = "Move Failed: " + moveit::core::error_code_to_string(ret);
-    //         return false;
-    //     }
-    // } else {
-    //     return false;
-    // }
-    // return true;
 }
 
 void Planner::asyncMoveHome() {

@@ -27,7 +27,8 @@ void Brain::item_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
             item_pose_map.at(item_pose.label).pose = item_pose.pose;
         }
         catch (std::out_of_range const&) {
-            item_pose_map[item_pose.label] = ItemPose(item_pose.pose);
+            item_pose_map[item_pose.label].pose = item_pose.pose;
+            item_pose_map[item_pose.label].in_queue = false;
         }
         // Queue item to be moved to goal
         try {
@@ -57,6 +58,7 @@ void Brain::goal_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
 
 void Brain::send_move_request(const std::string &item_label) {
     auto req = std::make_shared<interfaces::srv::Move::Request>();
+    req->grasp = true;
     auto timer = this->create_wall_timer(50ms, 
         std::function<void()>(std::bind(&Brain::publish_item_pose, this, std::cref(item_label))));
     RCLCPP_INFO(this->get_logger(), "Sending Move Request %s", item_label.c_str());
@@ -70,11 +72,12 @@ void Brain::send_move_request(const std::string &item_label) {
                 timer = this->create_wall_timer(50ms,
                     std::function<void()>(std::bind(&Brain::publish_goal_pose, this, get_goal_label(item_label)))
                 );
+                req->grasp = false;
                 move_client->wait_for_service(100ms); // Wait for service to not pre-empt service call
                 move_client->async_send_request(req,
                     [this](rclcpp::Client<interfaces::srv::Move>::SharedFuture future) {
                         this->move_request_response(future);
-                        // TODO: add drop item request on goal move failure
+                        // add drop item request on goal move failure?
                     }
                 );
                 item_pose_map.erase(item_label);
@@ -109,7 +112,7 @@ inline void Brain::publish_item_pose(const std::string &label) {
 
 std::string Brain::get_goal_label(const std::string &item_label) {
     std::string goal_label = item_label;
-    for(int i = 0; i < item_label.length(); i++) {
+    for(int i = 0; i < static_cast<int>(item_label.length()); i++) {
         if (isdigit(item_label[i])) {
             goal_label = item_label.substr(0, i);
         }
@@ -120,6 +123,7 @@ std::string Brain::get_goal_label(const std::string &item_label) {
 
 void Brain::send_move_request(const geometry_msgs::msg::Pose &pose) {
     auto req = std::make_shared<interfaces::srv::Move::Request>();
+    req->grasp = false;
     auto timer = this->create_wall_timer(50ms,
         [this, &pose] {
             pose_update_publisher->publish(pose);
@@ -141,8 +145,6 @@ int debug_main(int argc, char* argv[]) {
     auto brain = std::make_shared<Brain>();
     geometry_msgs::msg::Pose pose;
 
-    // this orientation should stay the same for most of our movements
-    // TODO: check orientation
     pose.orientation.w = 0;
     pose.orientation.x = 1;
     pose.orientation.y = 0;
