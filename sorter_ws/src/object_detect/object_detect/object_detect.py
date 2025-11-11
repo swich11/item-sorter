@@ -19,15 +19,15 @@ from enum import Enum
 
 # Constant Parameters 
 # TODO: make project variables
-MIN_BIN_AREA_THRESHOLD = 2000 # TO ADJUST
+MIN_BIN_AREA_THRESHOLD = 1500 # TO ADJUST
 
 # Define object colours with their HSV ranges
 # Simply need to add more colours here if needed no other code changes required
 class ObjectColour(Enum):
-    RED1    = ((0, 70, 50), (10, 255, 255))
+    # RED1    = ((0, 70, 50), (10, 255, 255))
     RED2    = ((170, 70, 50), (180, 255, 255))
     # GREEN   = ((35, 40, 40), (85, 255, 255))
-    BLUE    = ((100, 85, 85), (140, 255, 255))
+    # BLUE    = ((100, 85, 85), (140, 255, 255))
     # YELLOW  = ((15, 100, 100), (35, 255, 255))
 
     @property
@@ -132,12 +132,13 @@ class objectDetect(Node):
         vertices = len(approx)
         area = cv2.contourArea(contour)
 
-        shape = ObjectShape.UNKNOWN
+        shape = ObjectShape.CYLINDER
         zero_mask = np.zeros((self.intrinsics.height, self.intrinsics.width), dtype=np.uint8)
         mask = cv2.drawContours(zero_mask, [contour], -1, (0, 255, 0), -1)
-        shape, _, _ = self.fit_shape(self.depth_image, mask)
+        # shape, _, _ = self.fit_shape(self.depth_image, mask)
             
-        is_bin = self.is_bin_helper(contour, self.depth_image, mask)
+        # is_bin = self.is_bin_helper(contour, self.depth_image, mask)
+        is_bin = cv2.contourArea(contour) > MIN_BIN_AREA_THRESHOLD
         
         return shape, is_bin, approx
     
