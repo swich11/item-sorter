@@ -10,16 +10,16 @@ from enum import Enum
 
 # Constant Parameters 
 # TODO: make project variables
-MIN_BIN_AREA_THRESHOLD = 2000 # TO ADJUST
-MIN_BIN_DIM_THRESHOLD = 0.06 # in meters
+MIN_BIN_AREA_THRESHOLD = 1800 # TO ADJUST
+MIN_BIN_DIM_THRESHOLD = 0.04 # in meters
 
 # Define object colours with their HSV ranges
 # Simply need to add more colours here if needed no other code changes required
 class ObjectColour(Enum):
-    RED1    = ((0, 70, 50), (10, 255, 255))
+    # RED1    = ((0, 70, 50), (10, 255, 255))
     RED2    = ((170, 70, 50), (180, 255, 255))
     # GREEN   = ((35, 40, 40), (85, 255, 255))
-    BLUE    = ((100, 85, 85), (140, 255, 255))
+    # BLUE    = ((100, 85, 85), (140, 255, 255))
     # YELLOW  = ((15, 100, 100), (35, 255, 255))
 
     @property
@@ -163,12 +163,13 @@ class RealSenseD435i:
         vertices = len(approx)
         area = cv2.contourArea(contour)
 
-        shape = ObjectShape.UNKNOWN
+        shape = ObjectShape.CYLINDER
         zero_mask = np.zeros((self.intrinsics.height, self.intrinsics.width), dtype=np.uint8)
         mask = cv2.drawContours(zero_mask, [contour], -1, (0, 255, 0), -1)
-        shape, _, _ = self.fit_shape(depth_image, mask)
+        # shape, _, _ = self.fit_shape(depth_image, mask)
             
-        is_bin = self.is_bin_helper(contour, depth_image, mask)
+        # is_bin = self.is_bin_helper(contour, depth_image, mask)
+        is_bin = cv2.contourArea(contour) > MIN_BIN_AREA_THRESHOLD
         
         return shape, is_bin, approx
     
@@ -251,7 +252,7 @@ class RealSenseD435i:
         n_faces = self.count_hull_faces(pcd)
 
         # --- Infer shape based on faces + proportions ---
-        if n_faces <= 0:
+        if n_faces == 0:
             shape = ObjectShape.UNKNOWN
         elif n_faces <= 6:
             shape = ObjectShape.TRIANGULAR_PRISM
@@ -260,7 +261,7 @@ class RealSenseD435i:
         elif n_faces <= 12:
             shape = ObjectShape.HEXAGONAL_PRISM
         else:
-            shape = ObjectShape.UNKNOWN
+            shape = ObjectShape.CYLINDER
             
         # Catch flat objects
         if aspect[0] < 0.2:
@@ -270,7 +271,7 @@ class RealSenseD435i:
         return shape, center, n_faces
     
     def detect_objects(self, colour_img, depth_img):
-        print(self.intrinsics)
+        # print(self.intrinsics)
         # print(depth_img)
         # Initialize msgs
         objects = []
@@ -292,7 +293,7 @@ class RealSenseD435i:
             mask = cv2.inRange(hsv_image, colour_range.lower, colour_range.upper)
             # MIGHT NEED TO ADD MORPHOLOGICAL OPERATIONS HERE
             mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8))
-            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5), np.uint8))
+            # mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5), np.uint8))
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             for contour in contours:
