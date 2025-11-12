@@ -24,11 +24,11 @@ MIN_BIN_AREA_THRESHOLD = 1500 # TO ADJUST
 # Define object colours with their HSV ranges
 # Simply need to add more colours here if needed no other code changes required
 class ObjectColour(Enum):
-    # RED1    = ((0, 70, 50), (10, 255, 255))
-    RED2    = ((170, 70, 50), (180, 255, 255))
-    # GREEN   = ((35, 40, 40), (85, 255, 255))
-    # BLUE    = ((100, 85, 85), (140, 255, 255))
-    # YELLOW  = ((15, 100, 100), (35, 255, 255))
+    RED1    = ((0, 70, 50), (10, 255, 255))
+    RED2    = ((170, 70, 50), (180, 255, 255)) # NOTE: CYLINDERS ARE THIS HUE
+    GREEN   = ((35, 40, 40), (85, 255, 255))
+    BLUE    = ((100, 85, 85), (140, 255, 255))
+    YELLOW  = ((15, 100, 100), (35, 255, 255))
 
     @property
     def lower(self):
@@ -46,8 +46,20 @@ class ObjectShape(Enum):
     RECTANGULAR_PRISM = 4
     STAR_PRISM = 5
     HEXAGONAL_PRISM = 6
+    SPHERE = 7
 
     UNKNOWN = 0
+    
+    @property
+    def marker_type(self):
+        if self == ObjectShape.CYLINDER:
+            return Marker.CYLINDER
+        elif self in [ObjectShape.SQUARE_PRISM, ObjectShape.RECTANGULAR_PRISM]:
+            return Marker.CUBE
+        elif self == ObjectShape.SPHERE:
+            return Marker.SPHERE
+        else:
+            return Marker.SPHERE  # Default marker type
 
 class objectDetect(Node):
 
@@ -245,13 +257,13 @@ class objectDetect(Node):
         center = bbox.center
         return shape, center, n_faces
     
-    def make_marker(self, idx, colour_range, position, is_bin):
+    def make_marker(self, idx, colour_range, position, is_bin, shape=None):
         Marker_msg = Marker()
         Marker_msg.header.frame_id = "camera_frame"
         Marker_msg.header.stamp = self.get_clock().now().to_msg()
         Marker_msg.ns = "detected_objects"
         Marker_msg.id = idx
-        Marker_msg.type = Marker.SPHERE
+        Marker_msg.type = Marker.CYLINDER if shape is None else Marker.CUBE
         Marker_msg.action = Marker.ADD
         Marker_msg.pose.position = Point(x=position[0], y=position[1], z=position[2])
         Marker_msg.pose.orientation.w = 1.0
@@ -315,6 +327,7 @@ class objectDetect(Node):
         for colour_range in ObjectColour:
             mask = cv2.inRange(hsv_image, colour_range.lower, colour_range.upper)
             # MIGHT NEED TO ADD MORPHOLOGICAL OPERATIONS HERE
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5), np.uint8))
             mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8))
             # mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5), np.uint8))
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -342,7 +355,7 @@ class objectDetect(Node):
                             objects.poses.append(self.make_object(num_detected, colour_range, shape, global_position))
                             
                         # Create and append marker for visualization
-                        Marker_msg = self.make_marker(num_detected, colour_range, global_position, is_bin)
+                        Marker_msg = self.make_marker(num_detected, colour_range, global_position, is_bin, shape)
                         markers.markers.append(Marker_msg)
                         
                     # Show the mask image
