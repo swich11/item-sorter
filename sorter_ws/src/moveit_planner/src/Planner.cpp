@@ -45,8 +45,12 @@ void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::R
     RCLCPP_INFO(this->get_logger(), "Received Move Request.");
     if (!grabbed_home_pose) {
         home_pose = move_group_interface->getCurrentPose().pose;
-        home_pose.orientation.x = 1.0;
-        home_pose.orientation.y = 0.0;
+        RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f, w: %f", home_pose.orientation.x, 
+                                                                      home_pose.orientation.y,
+                                                                      home_pose.orientation.z,
+                                                                      home_pose.orientation.w);
+        home_pose.orientation.x = sqrt(2) / 2.0;
+        home_pose.orientation.y = -sqrt(2) / 2.0;
         home_pose.orientation.z = 0.0;
         home_pose.orientation.w = 0.0;
         grabbed_home_pose = true;
@@ -92,21 +96,17 @@ void Planner::asyncMoveHome() {
 }
 
 // sends serial mesg "close" over port to teensy
-bool Planner::grasp() {
+void Planner::grasp() {
     std_msgs::msg::String msg;
     msg.data = "close";
     arduino_pub->publish(msg);
-
-    return true;
 }
 
 // sends serial msg "open" over port to teensy
-bool Planner::ungrasp() {
+void Planner::ungrasp() {
     std_msgs::msg::String msg;
     msg.data = "open";
     arduino_pub->publish(msg);
-
-    return true;
 }
 
 void Planner::setPathConstraints() {

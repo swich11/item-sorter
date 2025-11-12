@@ -36,9 +36,9 @@ class Planner : public rclcpp::Node {
 
         void asyncMoveHome();
 
-        bool grasp();
+        void grasp();
 
-        bool ungrasp();
+        void ungrasp();
 
         void setPathConstraints();
 
