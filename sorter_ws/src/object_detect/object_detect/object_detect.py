@@ -4,7 +4,7 @@ import tf2_ros
 import os
 import numpy as np
 import pyrealsense2 as rs
-import open3d as o3d
+# import open3d as o3d
 from cv_bridge import CvBridge, CvBridgeError
 
 from rclpy.node import Node
@@ -20,7 +20,7 @@ from enum import Enum
 # Constant Parameters 
 # TODO: make project variables
 MIN_BIN_AREA_THRESHOLD = 1500 # TO ADJUST
-is_test = True  # Set to True to enable test mode
+IS_TEST = True  # Set to True to enable test mode
 
 # Define object colours with their HSV ranges
 # Simply need to add more colours here if needed no other code changes required
@@ -324,26 +324,26 @@ class objectDetect(Node):
         },
         {
             'position': [1.2, 0.2, -0.2],
-            'colour': ObjectColour.RED2,
-            'shape': ObjectShape.CYLINDER,
+            'colour': ObjectColour.RED,
+            'shape': ObjectShape.SPHERE,
             'is_bin': False
         },
         {
             'position': [1.2, -0.1, -0.2],
             'colour': ObjectColour.RED,
-            'shape': ObjectShape.CYLINDER,
+            'shape': ObjectShape.SPHERE,
             'is_bin': False
         },
         {
             'position': [1.2, -0.3, -0.2],
             'colour': ObjectColour.BLUE,
-            'shape': ObjectShape.CYLINDER,
+            'shape': ObjectShape.RECTANGULAR_PRISM,
             'is_bin': False
         },
         {
             'position': [1.2, 0.0, -0.2],
             'colour': ObjectColour.BLUE,
-            'shape': ObjectShape.CYLINDER,
+            'shape': ObjectShape.RECTANGULAR_PRISM,
             'is_bin': False
         }]
         
@@ -377,14 +377,14 @@ class objectDetect(Node):
         return goals, objects, markers
 
     def routine_callback(self):
-        if (self.cv_image is None) and not self.is_test:
+        if (self.cv_image is None) and not IS_TEST:
             self.get_logger().info("No image received. Routine callback skipped.")
             return None
 
         goals, objects, markers, annotated, complete_mask = self.detect_objects()
         
         # For demo only without object detection
-        if self.is_test:
+        if IS_TEST:
             goals, objects, markers = self.test_objects()
         # #
 
