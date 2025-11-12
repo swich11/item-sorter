@@ -285,20 +285,36 @@ class objectDetect(Node):
         Marker_msg.color.b = 255.0 if colour_range == ObjectColour.BLUE else 0.0
         return Marker_msg
     
-    def make_goal(self, idx, colour_range, shape, position):
+    def make_goal(self, idx, colour_range, shape, position, orientation=None):
         goal = LabelledPose()
         goal.label = f"{colour_range.name}_{shape.name}_{idx}_goal"
         goal.colour = colour_range.name
         goal.shape = shape.name
         goal.pose.position = Point(x=position[0], y=position[1], z=position[2])
+        if orientation is not None:
+            goal.pose.orientation = orientation
+        else:
+            # default orientation upwards
+            goal.pose.orientation.w = 0.707
+            goal.pose.orientation.x = 0.0
+            goal.pose.orientation.y = 0.0
+            goal.pose.orientation.z = 0.707
         return goal
     
-    def make_object(self, idx, colour_range, shape, position):
+    def make_object(self, idx, colour_range, shape, position, orientation=None):
         object = LabelledPose()
         object.label = f"{colour_range.name}_{shape.name}_{idx}"
         object.colour = colour_range.name
         object.shape = shape.name
         object.pose.position = Point(x=position[0], y=position[1], z=position[2])
+        if orientation is not None:
+            object.pose.orientation = orientation
+        else:
+            # default orientation upwards
+            object.pose.orientation.w = 0.707
+            object.pose.orientation.x = 0.0
+            object.pose.orientation.y = 0.0
+            object.pose.orientation.z = 0.707
         return object
         
     def detect_objects(self, colour_img, depth_img):
@@ -350,7 +366,8 @@ class objectDetect(Node):
                         shape, is_bin, _ = self.classify_shape(contour)
                         num_detected += 1
                         if is_bin:
-                            goals.poses.append(self.make_goal(num_detected, colour_range, shape, global_position))
+                            orientation = None # TODO: compute orientation for bin if needed using marker detection/point cloud
+                            goals.poses.append(self.make_goal(num_detected, colour_range, shape, global_position, orientation))
                         else:
                             objects.poses.append(self.make_object(num_detected, colour_range, shape, global_position))
                             
