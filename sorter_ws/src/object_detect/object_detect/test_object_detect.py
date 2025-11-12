@@ -16,10 +16,10 @@ MIN_BIN_DIM_THRESHOLD = 0.04 # in meters
 # Define object colours with their HSV ranges
 # Simply need to add more colours here if needed no other code changes required
 class ObjectColour(Enum):
-    # RED1    = ((0, 70, 50), (10, 255, 255))
-    RED2    = ((170, 70, 50), (180, 255, 255))
+    RED1    = ((0, 100, 75), (10, 255, 255))
+    RED2    = ((170, 100, 75), (180, 255, 255))
     # GREEN   = ((35, 40, 40), (85, 255, 255))
-    # BLUE    = ((100, 85, 85), (140, 255, 255))
+    BLUE    = ((100, 200, 30), (110, 255, 255))
     # YELLOW  = ((15, 100, 100), (35, 255, 255))
 
     @property
@@ -162,15 +162,17 @@ class RealSenseD435i:
         approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
         vertices = len(approx)
         area = cv2.contourArea(contour)
-
-        shape = ObjectShape.CYLINDER
         zero_mask = np.zeros((self.intrinsics.height, self.intrinsics.width), dtype=np.uint8)
         mask = cv2.drawContours(zero_mask, [contour], -1, (0, 255, 0), -1)
-        # shape, _, _ = self.fit_shape(depth_image, mask)
-            
-        # is_bin = self.is_bin_helper(contour, depth_image, mask)
-        is_bin = cv2.contourArea(contour) > MIN_BIN_AREA_THRESHOLD
         
+        shape = ObjectShape.CYLINDER
+        # shape, _, _, pcd = self.fit_shape(depth_image, mask)
+        # o3d.visualization.draw_geometries([pcd])
+        # wait = input("Press Enter to continue...")
+        # TODO: Change to use qr scaleing method to determine bin size / just qr says if it is a bin
+        is_bin = cv2.contourArea(contour) > MIN_BIN_AREA_THRESHOLD       
+        # is_bin = self.is_bin_helper(contour, depth_image, mask)
+                
         return shape, is_bin, approx
     
     # Helper to determine if contour likely represents a bin
@@ -238,7 +240,7 @@ class RealSenseD435i:
     def fit_shape(self, depth_frame, mask):
         pcd = self.mask_to_pointcloud(depth_frame, mask)
         if len(pcd.points) < 100:
-            return ObjectShape.UNKNOWN, None, 0
+            return ObjectShape.UNKNOWN, None, 0, None
 
         # Clean noise
         pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=1.0)
@@ -268,7 +270,7 @@ class RealSenseD435i:
             shape = ObjectShape.UNKNOWN
 
         center = bbox.center
-        return shape, center, n_faces
+        return shape, center, n_faces, pcd
     
     def detect_objects(self, colour_img, depth_img):
         # print(self.intrinsics)
@@ -284,15 +286,24 @@ class RealSenseD435i:
         # Convert BGR to HSV
         hsv_image = cv2.cvtColor(colour_img, cv2.COLOR_BGR2HSV)
 
+        # TODO: Tune these values as needed
         # Define area thresholds # To be project parameters
-        min_area = 500
-        max_area = 50000
+        min_area = 100
+        max_area = 100000
         
         # Loop through each colour range and detect objects of that colour
         for colour_range in ObjectColour:
+            if colour_range == ObjectColour.RED2:
+                continue
             mask = cv2.inRange(hsv_image, colour_range.lower, colour_range.upper)
+            if colour_range == ObjectColour.RED1:
+                mask2 = cv2.inRange(hsv_image, ObjectColour.RED2.lower, ObjectColour.RED2.upper)
+                mask = cv2.bitwise_or(mask, mask2)
+            # mask = cv2.inRange(hsv_image, colour_range.lower, colour_range.upper)
             # MIGHT NEED TO ADD MORPHOLOGICAL OPERATIONS HERE
-            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8))
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5), np.uint8))
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((7,7), np.uint8))
+            # mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8))
             # mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5), np.uint8))
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -316,8 +327,11 @@ class RealSenseD435i:
                             
                         # Create and append marker for visualization
                         cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
+                        cv2.circle(annotated, (cX, cY), 3, colour_range.lower.tolist(), -1)
                         cv2.putText(annotated, f"{colour_range.name}-{shape.name}-{is_bin}-({global_position})", (cX + 10, cY - 10),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                        # cv2.putText(annotated, f"{shape.name}-{is_bin}-({global_position})", (cX + 10, cY - 10),
+                                    # cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                         
                         objects.append({
                             'id': num_detected,
