@@ -1,6 +1,6 @@
 #include <Servo.h>
 
-Servo myServo
+Servo myServo;
 
 #define controlPin 9
 #define openAngle 0
@@ -10,22 +10,23 @@ Servo myServo
 
 void setup() {
   // set baud rate, pwm pin, open as default
-  serial.begin(baudRate);
+  Serial.begin(baudRate);
   myServo.attach(controlPin);
-  gripper.write(openAngle);
+  myServo.write(openAngle);
 }
 
 void loop() {
   // check reading serial, if there is check command, otherwise print error
   if (Serial.available() > 0) {
     String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
 
     if (cmd == "open") {
-      gripper.write(openAngle);
+      myServo.write(openAngle);
       Serial.println("Gripper opened");
     } 
     else if (cmd == "close") {
-      gripper.write(closeAngle);
+      myServo.write(closeAngle);
       Serial.println("Gripper closed");
     } 
     else {
@@ -35,5 +36,6 @@ void loop() {
   } else {
     // No command received
     Serial.print("no messesage picked up"); // small delay to avoid busy-waiting
+    delay(100);
   }
 }

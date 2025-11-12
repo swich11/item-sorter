@@ -36,6 +36,7 @@ install(DIRECTORY
 # install python nodes for arduino communication
 install(PROGRAMS
   scripts/util_arduino_node.py
+  scripts/test_arduino_pub.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
