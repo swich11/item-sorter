@@ -12,8 +12,6 @@
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 #include <moveit_msgs/msg/planning_scene.h>
 #include <geometry_msgs/msg/pose.hpp>
-#include 
-
 
 #include "interfaces/srv/move.hpp"
 

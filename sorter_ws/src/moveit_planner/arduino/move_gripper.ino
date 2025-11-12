@@ -32,4 +32,8 @@ void loop() {
       Serial.print("Unknown command: ");
       Serial.println(cmd);
     }
+  } else {
+    // No command received
+    Serial.print("no messesage picked up"); // small delay to avoid busy-waiting
+  }
 }
