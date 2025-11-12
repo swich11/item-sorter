@@ -257,7 +257,7 @@ class objectDetect(Node):
         center = bbox.center
         return shape, center, n_faces
     
-    def make_marker(self, idx, colour_range, position, is_bin, shape=None):
+    def make_marker(self, idx, colour_range, position, is_bin, shape=None, orientation=None):
         Marker_msg = Marker()
         Marker_msg.header.frame_id = "camera_frame"
         Marker_msg.header.stamp = self.get_clock().now().to_msg()
@@ -266,7 +266,13 @@ class objectDetect(Node):
         Marker_msg.type = Marker.CYLINDER if shape is None else Marker.CUBE
         Marker_msg.action = Marker.ADD
         Marker_msg.pose.position = Point(x=position[0], y=position[1], z=position[2])
-        Marker_msg.pose.orientation.w = 1.0
+        if orientation is not None:
+            Marker_msg.pose.orientation = orientation
+        else:
+            Marker_msg.pose.orientation.w = 1.0
+            Marker_msg.pose.orientation.x = 0.0
+            Marker_msg.pose.orientation.y = 0.0
+            Marker_msg.pose.orientation.z = 0.0
         Marker_msg.scale.x = 0.1 if is_bin else 0.05
         Marker_msg.scale.y = 0.1 if is_bin else 0.05
         Marker_msg.scale.z = 0.1 if is_bin else 0.05
@@ -295,10 +301,10 @@ class objectDetect(Node):
             goal.pose.orientation = orientation
         else:
             # default orientation upwards
-            goal.pose.orientation.w = 0.707
+            goal.pose.orientation.w = 1.0
             goal.pose.orientation.x = 0.0
             goal.pose.orientation.y = 0.0
-            goal.pose.orientation.z = 0.707
+            goal.pose.orientation.z = 0.0
         return goal
     
     def make_object(self, idx, colour_range, shape, position, orientation=None):
@@ -311,10 +317,10 @@ class objectDetect(Node):
             object.pose.orientation = orientation
         else:
             # default orientation upwards
-            object.pose.orientation.w = 0.707
+            object.pose.orientation.w = 1.0
             object.pose.orientation.x = 0.0
             object.pose.orientation.y = 0.0
-            object.pose.orientation.z = 0.707
+            object.pose.orientation.z = 0.0
         return object
         
     def detect_objects(self, colour_img, depth_img):
@@ -365,14 +371,14 @@ class objectDetect(Node):
                         # Append the object to the list
                         shape, is_bin, _ = self.classify_shape(contour)
                         num_detected += 1
+                        orientation = None # TODO: compute orientation for bin if needed using marker detection/point cloud
                         if is_bin:
-                            orientation = None # TODO: compute orientation for bin if needed using marker detection/point cloud
                             goals.poses.append(self.make_goal(num_detected, colour_range, shape, global_position, orientation))
                         else:
                             objects.poses.append(self.make_object(num_detected, colour_range, shape, global_position))
                             
                         # Create and append marker for visualization
-                        Marker_msg = self.make_marker(num_detected, colour_range, global_position, is_bin, shape)
+                        Marker_msg = self.make_marker(num_detected, colour_range, global_position, is_bin, shape, orientation)
                         markers.markers.append(Marker_msg)
                         
                     # Show the mask image
