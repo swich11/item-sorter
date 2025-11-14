@@ -4,7 +4,6 @@ import tf2_ros
 import os
 import numpy as np
 import pyrealsense2 as rs
-# import open3d as o3d
 from cv_bridge import CvBridge, CvBridgeError
 
 from rclpy.node import Node
@@ -233,36 +232,17 @@ class objectDetect(Node):
             object.pose.orientation.y = 0.0
             object.pose.orientation.z = 0.0
         return object
-        
-    def detect_objects(self):
-        # Initialize msgs
-        objects = LabelledPoseArray()
-        objects.header.stamp = self.get_clock().now().to_msg()
-        objects.header.frame_id = "camera_frame"
-        goals = LabelledPoseArray()
-        goals.header.stamp = self.get_clock().now().to_msg()
-        goals.header.frame_id = "camera_frame"
-        markers = MarkerArray()
-        num_detected = 0
-        
+    
+    def get_colour_masks(self):
         if self.cv_image is None:
-            return goals, objects, markers, None, None
-        annotated = self.cv_image.copy()
-        
-        # Convert BGR to HSV
+            return None, None
+        masks = {}
+        complete_mask = np.zeros(self.cv_image.shape[:2], dtype=np.uint8)
         hsv_image = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2HSV)
 
-        # Define area thresholds # To be project parameters
-        min_area = 500
-        max_area = 50000
-        
-        complete_mask = np.zeros(hsv_image.shape[:2], dtype=np.uint8)
-        # Loop through each colour range and detect objects of that colour
         for colour_range in ObjectColour:
-            # Skip RED2 as it's handled with RED
             if colour_range == ObjectColour.RED2:
-                continue 
-            
+                continue
             # Create a mask for the current colour range
             mask = cv2.inRange(hsv_image, colour_range.lower, colour_range.upper)
             if colour_range == ObjectColour.RED:
@@ -272,44 +252,72 @@ class objectDetect(Node):
             
             # Apply morphological operations to clean up the mask
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5), np.uint8))
-            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8))
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8), iterations=4)
+            mask = cv2.GaussianBlur(mask, (9, 9), 0)
             
-            # Add to complete mask
+            masks[colour_range] = mask
             complete_mask = cv2.bitwise_or(complete_mask, mask)
-            
-            # Find contours in the mask
+        
+        return masks, complete_mask
+    
+    def get_colour_contours(self, masks):
+        all_contours = []
+        for colour, mask in masks.items():
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-            # Loop through each contour to classify and locate objects
             for contour in contours:
                 area = cv2.contourArea(contour)
-                if area < min_area or area > max_area:
-                    continue
-            
-                moments = cv2.moments(contour)
-                if moments['m00'] != 0:
-                    # Calculate the center of the object
-                    cX = int(moments['m10'] / moments['m00'])
-                    cY = int(moments['m01'] / moments['m00'])
-                    
-                    # Convert the pixel coordinates to 3D world coordinates
-                    global_position = self.pixel_to_global([cX, cY])
-                    if global_position is not None:
-                        # Append the object to the list
-                        shape, is_bin, _ = self.classify_shape(contour)
-                        num_detected += 1
-                        orientation = None # TODO: compute orientation for bin if needed using marker detection/point cloud
-                        if is_bin:
-                            goals.poses.append(self.make_goal(num_detected, colour_range, shape, global_position, orientation))
-                        else:
-                            objects.poses.append(self.make_object(num_detected, colour_range, shape, global_position))
-                            
-                        # Create and append marker for visualization
-                        Marker_msg = self.make_marker(num_detected, colour_range, global_position, is_bin, shape, orientation)
-                        markers.markers.append(Marker_msg)
+                if area > 500 and area < 50000:
+                    all_contours.append((colour, contour))
+        return all_contours
 
-                        # Draw the center on the original image for visualization
-                        cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
+    def detect_objects(self):
+        # Initialize msgs
+        objects = LabelledPoseArray()
+        objects.header.stamp = self.get_clock().now().to_msg()
+        objects.header.frame_id = "camera_frame"
+        goals = LabelledPoseArray()
+        goals.header.stamp = self.get_clock().now().to_msg()
+        goals.header.frame_id = "camera_frame"
+        markers = MarkerArray()
+        
+        if self.cv_image is None:
+            return goals, objects, markers, None, None
+        
+        annotated = self.cv_image.copy()
+        num_detected = 0
+        
+        # Get masks for each colour range
+        masks, complete_mask = self.get_colour_masks()
+        
+        # Get all contours from all colour masks
+        contours = self.get_colour_contours(masks)
+
+        # Loop through each contour to classify and locate objects
+        for colour_range, contour in contours:
+            moments = cv2.moments(contour)
+            if moments['m00'] != 0:
+                # Calculate the center of the object
+                cX = int(moments['m10'] / moments['m00'])
+                cY = int(moments['m01'] / moments['m00'])
+                
+                # Convert the pixel coordinates to 3D world coordinates
+                global_position = self.pixel_to_global([cX, cY])
+                if global_position is not None:
+                    # Append the object to the list
+                    num_detected += 1
+                    shape, is_bin, _ = self.classify_shape(contour)
+                    orientation = None # TODO: compute orientation for bin if needed using marker detection/point cloud
+                    if is_bin:
+                        goals.poses.append(self.make_goal(num_detected, colour_range, shape, global_position, orientation))
+                    else:
+                        objects.poses.append(self.make_object(num_detected, colour_range, shape, global_position))
+                        
+                    # Create and append marker for Rviz visualization
+                    Marker_msg = self.make_marker(num_detected, colour_range, global_position, is_bin, shape, orientation)
+                    markers.markers.append(Marker_msg)
+
+                    # Draw the center on the original image for opencv visualization
+                    cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
 
         return goals, objects, markers, annotated, complete_mask
 
