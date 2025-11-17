@@ -11,7 +11,7 @@ from enum import Enum
 # Constant Parameters 
 # TODO: make project variables
 MIN_BIN_AREA_THRESHOLD = 2000 # TO ADJUST
-MARKER_SIZE = 0.05  # Size of the ArUco marker in meters
+MARKER_SIZE = 0.025  # Size of the ArUco marker in meters
 
 
 # Define object colours with their HSV ranges
@@ -46,8 +46,8 @@ class ObjectShape(Enum):
     UNKNOWN = 0
 
 object_info = {
-    0: {"shape" : ObjectShape.UNKNOWN,"is_bin" : False, "tf_to_centre" : (0,0,0)},
-    1: {"shape" : ObjectShape.SPHERE,"is_bin" : False, "tf_to_centre" : (0,0,0)},
+    0: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,0)},
+    1: {"shape" : ObjectShape.SPHERE, "is_bin" : False, "tf_to_centre" : (0,0,0)},
     2: {"shape" : ObjectShape.CUBE, "is_bin" : False, "tf_to_centre" : (0,0,0)},
     3: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,0)},
     4: {"shape" : ObjectShape.CYLINDER, "is_bin" : True, "tf_to_centre" : (0,0,0)},
@@ -85,26 +85,6 @@ class RealSenseD435i:
             [0,  0,   1]
         ])
         self.dist_coeffs = np.zeros((5,))
-    
-    # OLD shape classifier
-    def classify_shape_polyapprox(self, contour):
-        # Polygonal approximation (Does not work due to struggling differentiating the faces with contours)
-        peri = cv2.arcLength(contour, True)
-        approx = cv2.approxPolyDP(contour, 0.02 * peri, True) # May need to find face among approximations
-        vertices = len(approx)
-        area = cv2.contourArea(contour)
-
-        shape = ObjectShape.UNKNOWN
-        if vertices == 3:
-            shape = ObjectShape.TRIANGULAR_PRISM
-        elif vertices == 4:
-            shape = ObjectShape.SQUARE_PRISM
-        elif 5 <= vertices <= 6:
-            shape = ObjectShape.HEXAGONAL_PRISM
-            
-        is_bin = (area > MIN_BIN_AREA_THRESHOLD)
-        
-        return shape, is_bin, approx
     
     # TODO: Implement shape classification
     def classify_shape(self, contour, depth_image):
