@@ -45,12 +45,14 @@ class ObjectShape(Enum):
     UNKNOWN = 0
 
 object_info = {
-    0: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,0)},
-    1: {"shape" : ObjectShape.SPHERE, "is_bin" : False, "tf_to_centre" : (0,0,0)},
-    2: {"shape" : ObjectShape.CUBE, "is_bin" : False, "tf_to_centre" : (0,0,0)},
-    3: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,0)},
-    4: {"shape" : ObjectShape.CYLINDER, "is_bin" : True, "tf_to_centre" : (0,0,0)},
-    5: {"shape" : ObjectShape.RECTANGULAR_PRISM, "is_bin" : True, "tf_to_centre" : (0,0,0)}
+    0: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,-0.02)},
+    1: {"shape" : ObjectShape.SPHERE, "is_bin" : False, "tf_to_centre" : (0,0,-0.02)},
+    2: {"shape" : ObjectShape.CUBE, "is_bin" : False, "tf_to_centre" : (0,0, -0.02)},
+    3: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,-0.02)},
+    4: {"shape" : ObjectShape.CYLINDER, "is_bin" : True, "tf_to_centre" : (0,0,-0.02)},
+    5: {"shape" : ObjectShape.RECTANGULAR_PRISM, "is_bin" : True, "tf_to_centre" : (0,0,-0.02)},
+    # ... add more as needed
+    49: {"shape" : ObjectShape.UNKNOWN, "is_bin" : True, "tf_to_centre" : (0,0,-0.04)},
 }
 
 class RealSenseD435i:
@@ -265,6 +267,12 @@ class RealSenseD435i:
             return info["shape"], info["is_bin"], info["tf_to_centre"]
         else:
             return ObjectShape.UNKNOWN, False, (0,0,0)
+        
+    def point_transform(self, point, orientation, transform):
+        R, _ = cv2.Rodrigues(orientation)
+        t = np.array(transform).reshape((3,1))
+        transform = np.array(point).reshape((3,1))
+        return R @ transform + t
     
     def detect_objects(self):
         objects = []
@@ -293,21 +301,19 @@ class RealSenseD435i:
             # detect aruco marker 
             ids, tvecs, rvecs, centers = self.find_aruco(contour)
             
-            if ids is not None:
+            if ids is not None and tvecs is not None and rvecs is not None and centers is not None:
                 # ArUco detected, use it to classify shape
                 for idx, id in enumerate(ids):
                     shape, is_bin, transform = self.get_aruco_info(id)
                     
-                    if centers:
-                        cX, cY = centers[idx]
-                    else:
-                        cX, cY = 0, 0
+                    cX, cY = centers[idx]
                                 
                     num_detected += 1        
                     # Create and append marker for visualization
                     cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
                     bin_str = "BIN" if is_bin else "OBJ"
                     global_position = self.pixel_to_global(self.depth_image, [cX, cY])
+                    global_position = self.point_transform(global_position, rvecs[idx][0], transform)
                     cv2.putText(annotated, f"A-{colour_range.name}-{shape.name}-{bin_str}-({(global_position)})", (cX + 10, cY - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                         
@@ -337,6 +343,7 @@ class RealSenseD435i:
                     cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
                     bin_str = "BIN" if is_bin else "OBJ"
                     global_position = self.pixel_to_global(self.depth_image, [cX, cY])
+                    global_position = self.point_transform(global_position, (0,0,0), (0,0,-0.025))
                     cv2.putText(annotated, f"{colour_range.name}-{shape.name}-{bin_str}-({global_position})", (cX + 10, cY - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                         
@@ -351,7 +358,6 @@ class RealSenseD435i:
 
                     # Draw the center on the original image for opencv visualization
                     cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
-        
                         
         # Show the mask image
         if complete_mask is not None:
