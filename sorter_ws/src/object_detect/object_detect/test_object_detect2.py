@@ -194,7 +194,7 @@ class RealSenseD435i:
         masks, complete_mask = self.get_colour_masks()
         
         # Get all contours from all colour masks
-        contours = self.get_colour_contours(masks)
+        contours = self.get_colour_contours(masks)  
 
         # Loop through each contour to classify and locate objects
         for colour_range, contour in contours:
