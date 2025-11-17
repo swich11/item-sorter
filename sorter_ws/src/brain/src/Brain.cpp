@@ -7,10 +7,10 @@ using namespace std::chrono_literals;
 Brain::Brain() : Node("brain") {
     move_client = this->create_client<interfaces::srv::Move>("/moveit_planner/move");
     item_pose_subscription = this->create_subscription<interfaces::msg::LabelledPoseArray>(
-        "/base/objects/labelled_pose_array", 10, std::bind(&Brain::item_topic_callback, this, _1)
+        "/camera/objects/labelled_pose_array", 10, std::bind(&Brain::item_topic_callback, this, _1)
     );
     goal_pose_subscription = this->create_subscription<interfaces::msg::LabelledPoseArray>(
-        "/base/goals/labelled_pose_array", 10, std::bind(&Brain::goal_topic_callback, this, _1)
+        "/camera/goals/labelled_pose_array", 10, std::bind(&Brain::goal_topic_callback, this, _1)
     );
     pose_update_publisher = this->create_publisher<geometry_msgs::msg::Pose>(
         "/brain/move/pose", 10
@@ -21,6 +21,9 @@ Brain::Brain() : Node("brain") {
 
 
 void Brain::item_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
+    // TODO: transform the pose to base link
+
+
     for (auto item_pose : msg.poses) {
         // Update item pose in the map
         try {
@@ -47,6 +50,10 @@ void Brain::item_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
 
 
 void Brain::goal_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
+    // TODO: transform pose to base link
+
+
+
     for (auto pose : msg.poses) {
         geometry_msgs::msg::PoseStamped pose_stamped;
         pose_stamped.header = msg.header;
