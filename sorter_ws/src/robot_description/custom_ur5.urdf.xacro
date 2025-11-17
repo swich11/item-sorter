@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Load UNIVERSAL ROBOTS UR5e -->
+  <xacro:include filename="$(find ur_description)/urdf/ur5e.urdf.xacro" />
+
+  <!-- Call UR macro -->
+  <ur5e_robot
+      prefix=""
+      safety_limits:="true"
+      kinematics_parameters_file:="$(find ur_description)/config/ur5e_default.yaml"/>
+
+  <!-- Include your end effector -->
+  <xacro:include filename="$(find my_end_effector_description)/urdf/my_gripper.urdf.xacro"/>
+
+  <!-- Create the joint connecting gripper to wrist_3_link -->
+  <joint name="gripper_mount_joint" type="fixed">
+    <parent link="wrist_3_link"/>
+    <child link="my_gripper_base_link"/>
+    
+    <!-- Adjust XYZ + RPY for correct mounting -->
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+  </joint>
+
+</robot>
