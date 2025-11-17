@@ -47,6 +47,7 @@ private:
     std::map<std::string, ItemPose> item_pose_map;
     std::map<std::string, geometry_msgs::msg::PoseStamped> goal_pose_map;
 
+    rclcpp::TimerBase::SharedPtr timer;
     rclcpp::Client<interfaces::srv::Move>::SharedPtr move_client;
     rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr pose_update_publisher;
     rclcpp::Subscription<interfaces::msg::LabelledPoseArray>::SharedPtr item_pose_subscription;

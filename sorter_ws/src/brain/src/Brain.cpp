@@ -59,17 +59,16 @@ void Brain::goal_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
 void Brain::send_move_request(const std::string &item_label) {
     auto req = std::make_shared<interfaces::srv::Move::Request>();
     req->grasp = true;
-    auto timer = this->create_wall_timer(50ms, 
+    this->timer = this->create_wall_timer(50ms, 
         std::function<void()>(std::bind(&Brain::publish_item_pose, this, std::cref(item_label))));
     RCLCPP_INFO(this->get_logger(), "Sending Move Request %s", item_label.c_str());
 
     move_client->wait_for_service(100ms); // Don't pre-empt the service call
     move_client->async_send_request(req,
-        [this, &item_label, &req, &timer](rclcpp::Client<interfaces::srv::Move>::SharedFuture future) {
+        [this, &item_label, &req](rclcpp::Client<interfaces::srv::Move>::SharedFuture future) {
             if (this->move_request_response(future)) {
                 // Send goal as request now
-                timer->cancel();
-                timer = this->create_wall_timer(50ms,
+                this->timer = this->create_wall_timer(50ms,
                     std::function<void()>(std::bind(&Brain::publish_goal_pose, this, get_goal_label(item_label)))
                 );
                 req->grasp = false;
@@ -91,6 +90,7 @@ void Brain::send_move_request(const std::string &item_label) {
 
 
 bool Brain::move_request_response(rclcpp::Client<interfaces::srv::Move>::SharedFuture future) {
+    this->timer->cancel();
     auto res = future.get();
     if (res->success) {
         return true;
@@ -124,7 +124,7 @@ std::string Brain::get_goal_label(const std::string &item_label) {
 void Brain::send_move_request(const geometry_msgs::msg::Pose &pose) {
     auto req = std::make_shared<interfaces::srv::Move::Request>();
     req->grasp = false;
-    auto timer = this->create_wall_timer(50ms,
+    this->timer = this->create_wall_timer(50ms,
         [this, &pose] {
             pose_update_publisher->publish(pose);
         }

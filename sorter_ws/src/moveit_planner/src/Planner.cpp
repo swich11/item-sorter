@@ -3,6 +3,7 @@
 
 using std::placeholders::_1;
 using std::placeholders::_2;
+using namespace std::chrono_literals;
 
 
 
@@ -84,7 +85,7 @@ bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res) {
                                                                   goal_pose.orientation.w);
     moveit::planning_interface::MoveGroupInterface::Plan plan;
     geometry_msgs::msg::Pose tracked_goal = home_pose; // Anything different to the goal_pose works
-    while (!isPoseClose(move_group_interface->getCurrentPose().pose, goal_pose)) {
+    do {
         if (!isPoseClose(tracked_goal, goal_pose)) {
             // Change goal when the object moves
             tracked_goal = goal_pose;
@@ -94,12 +95,17 @@ bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res) {
             if (ret != moveit::core::MoveItErrorCode::SUCCESS) {
                 RCLCPP_ERROR(this->get_logger(), "Planning Failed :(.");
                 res->success = false;
+                RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f", tracked_goal.position.x,
+                                                                       tracked_goal.position.y,
+                                                                       tracked_goal.position.z);
                 res->message = "Planning failed during move: " + moveit::core::error_code_to_string(ret);
                 return false;
             }
             move_group_interface->asyncExecute(plan);
         }
-    }
+        rclcpp::sleep_for(50ms);
+    } while (!move_group_interface->getMoveGroupClient().action_server_is_ready());
+
     res->success = true;
     return true;
 }
