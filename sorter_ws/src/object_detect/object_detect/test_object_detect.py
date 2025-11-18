@@ -17,11 +17,12 @@ MARKER_SIZE = 0.025  # Marker size in meters
 # Define object colours with their HSV ranges
 # Simply need to add more colours here if needed no other code changes required
 class ObjectColour(Enum):
-    RED    = ((0, 100, 75), (10, 255, 255))
-    RED2    = ((170, 100, 75), (180, 255, 255))
+    RED    = ((0, 100, 65), (10, 255, 255))
+    RED2    = ((170, 100, 65), (180, 255, 255))
     # GREEN   = ((35, 40, 40), (85, 255, 255))
     BLUE    = ((100, 200, 30), (110, 255, 255))
     # YELLOW  = ((15, 100, 100), (35, 255, 255))
+    # ALL   = ((0, 0, 0), (180, 255, 255))  # Special case to get all colours
 
     @property
     def lower(self):
@@ -61,9 +62,11 @@ class RealSenseD435i:
     VFOV = 42.5     # Vertical FOV
     
     # FEED SETTINGS
+    # HRES = 1280      # Horizontal Resolution
     HRES = 640      # Horizontal Resolution
+    # VRES = 720      # Vertical Resolution
     VRES = 480      # Vertical Resolution
-    FPS = 60        # FPS
+    FPS = 30        # FPS
     
     def __init__(self):
         # Initialize RealSense pipeline
@@ -140,12 +143,13 @@ class RealSenseD435i:
         self.pipeline.stop()
     
     # Helper gets points position respective to colour camera    
-    def pixel_to_global(self, depth_image, pixel_pt):
-        if depth_image is not None and self.intrinsics is not None and pixel_pt[0]<self.intrinsics.height and pixel_pt[1]<self.intrinsics.width:
-            [x,y,z] = rs.rs2_deproject_pixel_to_point(self.intrinsics, (pixel_pt[0],pixel_pt[1] ), depth_image[pixel_pt[0],pixel_pt[1] ]*0.001)
+    def pixel_to_global(self, depth_image, pixel_pt, depth_offset=0.0):
+        cX, cY = pixel_pt
+        if depth_image is not None and self.intrinsics is not None and cX < self.intrinsics.width and cY < self.intrinsics.height:
+            [x,y,z] = rs.rs2_deproject_pixel_to_point(self.intrinsics, (cX, cY), depth_image[cY,cX]*0.001 + depth_offset)
             print("fine")
-            return [x, y, z]
-        elif pixel_pt[0]>self.intrinsics.width or pixel_pt[1]>self.intrinsics.height:
+            return (x, y, z)
+        elif cX > self.intrinsics.width or cY > self.intrinsics.height:
             print("Pixel out of bounds")
             return None
         else:
@@ -206,7 +210,7 @@ class RealSenseD435i:
             
             # Apply morphological operations to clean up the mask
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5), np.uint8))
-            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8), iterations=3)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8), iterations=5)
             # mask = cv2.GaussianBlur(mask, (5, 5), 0)
             
             masks[colour_range] = mask
@@ -278,7 +282,7 @@ class RealSenseD435i:
         objects = []
         num_detected = 0
 
-        if self.colour_image is None:
+        if self.colour_image is None or self.depth_image is None:
             return None, None, None
         annotated = self.colour_image.copy()
         
@@ -312,10 +316,17 @@ class RealSenseD435i:
                     # Create and append marker for visualization
                     cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
                     bin_str = "BIN" if is_bin else "OBJ"
+                    # cX,cY = self.intrinsics.width//2, self.intrinsics.height//2
                     global_position = self.pixel_to_global(self.depth_image, [cX, cY])
                     global_position = self.point_transform(global_position, rvecs[idx][0], transform)
-                    cv2.putText(annotated, f"A-{colour_range.name}-{shape.name}-{bin_str}-({(global_position)})", (cX + 10, cY - 10),
+                    cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
+                    # cv2.putText(annotated, f"A-{colour_range.name}-{shape.name}-{bin_str}-({(global_position)})", (cX + 10, cY - 10),
+                    #     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    a,b,c = global_position if global_position is not None else (0,0,0)
+                    cv2.putText(annotated, f"A-{a:.3f}-{b:.3f}-{c:.3f})", (cX + 10, cY - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    # cv2.putText(annotated, f"A-{global_position})", (cX + 10, cY - 10),
+                    #     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                         
                     objects.append({
                         'id': num_detected,
@@ -342,9 +353,13 @@ class RealSenseD435i:
                     # Create and append marker for visualization
                     cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
                     bin_str = "BIN" if is_bin else "OBJ"
-                    global_position = self.pixel_to_global(self.depth_image, [cX, cY])
-                    global_position = self.point_transform(global_position, (0,0,0), (0,0,-0.025))
-                    cv2.putText(annotated, f"{colour_range.name}-{shape.name}-{bin_str}-({global_position})", (cX + 10, cY - 10),
+                    # cX,cY = 0,0
+                    global_position = self.pixel_to_global(self.depth_image, [cX, cY], depth_offset=0.04 if is_bin else 0.02)
+                    # global_position = self.point_transform(global_position, (0,0,0), (0,0,-0.04) if is_bin else (0,0,-0.02))
+                    # cv2.putText(annotated, f"{colour_range.name}-{shape.name}-{bin_str}-({global_position})", (cX + 10, cY - 10),
+                        # cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2
+                    a,b,c = global_position if global_position is not None else (0,0,0)
+                    cv2.putText(annotated, f"B-{a:.3f}-{b:.3f}-{c:.3f})", (cX + 10, cY - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                         
                     objects.append({
@@ -358,11 +373,6 @@ class RealSenseD435i:
 
                     # Draw the center on the original image for opencv visualization
                     cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
-                        
-        # Show the mask image
-        if complete_mask is not None:
-            cv2.imshow("Mask", complete_mask)
-            cv2.waitKey(1)  # Wait for a brief moment to update the window
 
         # Sort detections by colour and shape for consistent ordering
         # detections.sort(key=lambda d: (d['colour'], d['shape']))
@@ -397,26 +407,26 @@ class RealSenseD435i:
 
                 # Adding visualisation markers and depth image for demo/testing
                 if test and self.colour_image is not None:
-                    print(f"\nRun Loop Time  (PRE DISPLAY): {1000*(time.process_time()-tic)}ms\n")
+                    # print(f"\nRun Loop Time  (PRE DISPLAY): {1000*(time.process_time()-tic)}ms\n")
                     
-                    # Convert depth to color
-                    depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(self.depth_image, alpha=0.03), cv2.COLORMAP_JET)
+                    # # Convert depth to color
+                    # depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(self.depth_image, alpha=0.03), cv2.COLORMAP_JET)
                 
-                    depth_colormap_dim = depth_colormap.shape
-                    color_colormap_dim = self.colour_image.shape
+                    # depth_colormap_dim = depth_colormap.shape
+                    # color_colormap_dim = self.colour_image.shape
 
-                    # If depth and color resolutions are different, resize color image to match depth image for display
-                    if depth_colormap_dim != color_colormap_dim:
-                        resized_color_image = cv2.resize(self.colour_image, dsize=(depth_colormap_dim[1], depth_colormap_dim[0]), interpolation=cv2.INTER_AREA)
-                        images = np.hstack((resized_color_image, depth_colormap))
-                    else:
-                        images = np.hstack((self.colour_image, depth_colormap))
+                    # # If depth and color resolutions are different, resize color image to match depth image for display
+                    # if depth_colormap_dim != color_colormap_dim:
+                    #     resized_color_image = cv2.resize(self.colour_image, dsize=(depth_colormap_dim[1], depth_colormap_dim[0]), interpolation=cv2.INTER_AREA)
+                    #     images = np.hstack((resized_color_image, depth_colormap))
+                    # else:
+                    #     images = np.hstack((self.colour_image, depth_colormap))
 
-                    # Display the depth and color images
-                    cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-                    cv2.imshow('RealSense', images)
+                    # # Display the depth and color images
+                    # cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
+                    # cv2.imshow('RealSense', images)
 
-                    print(f"\nRun Loop Time (POST DISPLAY): {1000*(time.process_time()-tic)}ms\n")
+                    # print(f"\nRun Loop Time (POST DISPLAY): {1000*(time.process_time()-tic)}ms\n")
                     
                     # Exit the loop when 'q' is pressed
                     if cv2.waitKey(1) & 0xFF == ord('q'):
