@@ -9,8 +9,8 @@ baud_rate = 9600
 class ArduinoNode(Node): 
     def __init__(self): 
         super().__init__('util_arduino_node') 
-        self.publisher_ = self.create_publisher(String, 'arduino_commands', self.command_callback, 10) 
-        self.serial_port = serial.Serial('port', baud_rate, timeout=1)
+        self.publisher_ = self.create_subscription(String, 'arduino_cmds', self.command_callback, 10) 
+        self.serial_port = serial.Serial(port, baud_rate, timeout=1)
     
     def command_callback(self, msg): 
         command = msg.data 
