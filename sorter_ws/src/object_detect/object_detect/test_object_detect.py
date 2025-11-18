@@ -271,12 +271,13 @@ class RealSenseD435i:
             return info["shape"], info["is_bin"], info["tf_to_centre"]
         else:
             return ObjectShape.UNKNOWN, False, (0,0,0)
-        
+    
+    # TODO: test this function
     def point_transform(self, point, orientation, transform):
         R, _ = cv2.Rodrigues(orientation)
-        t = np.array(transform).reshape((3,1))
-        transform = np.array(point).reshape((3,1))
-        return R @ transform + t
+        t = np.array(point).reshape((3,1))
+        offset = np.array(transform).reshape((3,1))
+        return R @ offset + t
     
     def detect_objects(self):
         objects = []
@@ -318,15 +319,17 @@ class RealSenseD435i:
                     bin_str = "BIN" if is_bin else "OBJ"
                     # cX,cY = self.intrinsics.width//2, self.intrinsics.height//2
                     global_position = self.pixel_to_global(self.depth_image, [cX, cY])
+                    pre_global = np.array(global_position).reshape((3,1))
                     global_position = self.point_transform(global_position, rvecs[idx][0], transform)
                     cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
                     # cv2.putText(annotated, f"A-{colour_range.name}-{shape.name}-{bin_str}-({(global_position)})", (cX + 10, cY - 10),
                     #     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-                    a,b,c = global_position if global_position is not None else (0,0,0)
-                    cv2.putText(annotated, f"A-{a:.3f}-{b:.3f}-{c:.3f})", (cX + 10, cY - 10),
+                    # a,b,c = global_position if global_position is not None else (0,0,0)
+                    # cv2.putText(annotated, f"A-{a:.3f}-{b:.3f}-{c:.3f})", (cX + 10, cY - 10),
+                        # cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    print(f"diff:{global_position-pre_global}")
+                    cv2.putText(annotated, f"A-{global_position-pre_global})", (cX + 10, cY - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-                    # cv2.putText(annotated, f"A-{global_position})", (cX + 10, cY - 10),
-                    #     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                         
                     objects.append({
                         'id': num_detected,
