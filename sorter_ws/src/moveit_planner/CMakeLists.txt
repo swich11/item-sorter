@@ -33,13 +33,6 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}/
 )
 
-# install python nodes for arduino communication
-install(PROGRAMS
-  scripts/util_arduino_node.py
-  scripts/test_arduino_pub.py
-  DESTINATION lib/${PROJECT_NAME}
-)
-
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights

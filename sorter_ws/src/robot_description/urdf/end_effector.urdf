@@ -39,7 +39,7 @@
 				<mesh filename="package://robot_description/meshes/end_effector_main_frame.stl"/>
 			</geometry>
 			<material name='dark_grey'>
-				<color rgba="54, 69, 79, 1"/>
+				<color rgba="1.0 1.0 1.0 1.0"/>
 			</material>
 		</visual>
 			
