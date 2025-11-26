@@ -65,7 +65,7 @@ void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::R
     target_pose.position = req->goal_pose.position;
     move(res, target_pose);
     RCLCPP_INFO(this->get_logger(), "At Goal Pose.");
-    ungrasp();
+    // ungrasp();
     asyncMoveHome();
 }
 

@@ -91,7 +91,7 @@ int debug_main(int argc, char* argv[]) {
 
     start_pose.position.x = 0.56;
     start_pose.position.y = 0.35;
-    start_pose.position.z = 0.17;
+    start_pose.position.z = 0.4;
 
     goal_pose.orientation.w = 0;
     goal_pose.orientation.x = 1;
@@ -100,7 +100,7 @@ int debug_main(int argc, char* argv[]) {
 
     goal_pose.position.x = 0.3;
     goal_pose.position.y = 0.3;
-    goal_pose.position.z = 0.1;
+    goal_pose.position.z = 0.25;
 
     brain->send_move_request(start_pose, goal_pose);
 
