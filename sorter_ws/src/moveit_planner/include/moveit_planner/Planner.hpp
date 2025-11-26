@@ -16,7 +16,6 @@
 #include <moveit_msgs/msg/planning_scene.h>
 #include <geometry_msgs/msg/pose.hpp>
 
-
 #include "interfaces/srv/move.hpp"
 
 

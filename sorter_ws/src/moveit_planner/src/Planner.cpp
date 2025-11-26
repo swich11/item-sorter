@@ -62,19 +62,14 @@ void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::R
         goal_pose.orientation = home_pose.orientation;
     }
     move_group_interface->stop();
-    move(res);
-    if (req->grasp) {
-        grasp();
-    } else {
-        ungrasp();
-        RCLCPP_INFO(this->get_logger(), "Going home.");
-        asyncMoveHome();
-    }
-}
-
-
-void Planner::goalPoseCallback(const geometry_msgs::msg::Pose &pose) {
-    goal_pose.position = pose.position;
+    move(res, target_pose);
+    RCLCPP_INFO(this->get_logger(), "At Start Pose.");
+    grasp();
+    target_pose.position = req->goal_pose.position;
+    move(res, target_pose);
+    RCLCPP_INFO(this->get_logger(), "At Goal Pose.");
+    // ungrasp();
+    asyncMoveHome();
 }
 
 
@@ -118,14 +113,14 @@ void Planner::asyncMoveHome() {
 // sends serial mesg "close" over port to teensy
 void Planner::grasp() {
     std_msgs::msg::String msg;
-    msg.data = "close";
+    msg.data = "close\n";
     arduino_pub->publish(msg);
 }
 
 // sends serial msg "open" over port to teensy
 void Planner::ungrasp() {
     std_msgs::msg::String msg;
-    msg.data = "open";
+    msg.data = "open\n";
     arduino_pub->publish(msg);
 }
 

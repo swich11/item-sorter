@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 import threading
 import time
-import open3d as o3d
+import cv2.aruco as aruco
 
 from enum import Enum
 
@@ -12,15 +12,17 @@ from enum import Enum
 # TODO: make project variables
 MIN_BIN_AREA_THRESHOLD = 1800 # TO ADJUST
 MIN_BIN_DIM_THRESHOLD = 0.04 # in meters
+MARKER_SIZE = 0.025  # Marker size in meters
 
 # Define object colours with their HSV ranges
 # Simply need to add more colours here if needed no other code changes required
 class ObjectColour(Enum):
-    # RED1    = ((0, 70, 50), (10, 255, 255))
-    RED2    = ((170, 70, 50), (180, 255, 255))
+    RED    = ((0, 100, 65), (10, 255, 255))
+    RED2    = ((170, 100, 65), (180, 255, 255))
     # GREEN   = ((35, 40, 40), (85, 255, 255))
-    # BLUE    = ((100, 85, 85), (140, 255, 255))
+    BLUE    = ((100, 200, 30), (110, 255, 255))
     # YELLOW  = ((15, 100, 100), (35, 255, 255))
+    # ALL   = ((0, 0, 0), (180, 255, 255))  # Special case to get all colours
 
     @property
     def lower(self):
@@ -38,21 +40,33 @@ class ObjectShape(Enum):
     RECTANGULAR_PRISM = 4
     STAR_PRISM = 5
     HEXAGONAL_PRISM = 6
+    SPHERE = 7
+    CUBE = 8
 
     UNKNOWN = 0
 
+object_info = {
+    0: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,-0.02)},
+    1: {"shape" : ObjectShape.SPHERE, "is_bin" : False, "tf_to_centre" : (0,0,-0.02)},
+    2: {"shape" : ObjectShape.CUBE, "is_bin" : False, "tf_to_centre" : (0,0, -0.02)},
+    3: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,-0.02)},
+    4: {"shape" : ObjectShape.CYLINDER, "is_bin" : True, "tf_to_centre" : (0,0,-0.02)},
+    5: {"shape" : ObjectShape.RECTANGULAR_PRISM, "is_bin" : True, "tf_to_centre" : (0,0,-0.02)},
+    # ... add more as needed
+    49: {"shape" : ObjectShape.UNKNOWN, "is_bin" : True, "tf_to_centre" : (0,0,-0.04)},
+}
+
 class RealSenseD435i:
-    __slots__ = ('context', 'pipeline', 'config', 'estimator', 'last_image', 'last_distance', 'align', 'num_people', 'last_position', 'last_angle',
-                 'intrinsics', 'person_width', 'is_person_hug', 'cv', 'shared', 'lock', 'estimator_thread', 'estimator_thread_on', 'tracker', 'tracker_thread', 'tracker_thread_on' 
-        )
     # CAMERA SPECS
     HFOV = 69.4     # Horizontal FOV
     VFOV = 42.5     # Vertical FOV
     
     # FEED SETTINGS
+    # HRES = 1280      # Horizontal Resolution
     HRES = 640      # Horizontal Resolution
+    # VRES = 720      # Vertical Resolution
     VRES = 480      # Vertical Resolution
-    FPS = 60        # FPS
+    FPS = 30        # FPS
     
     def __init__(self):
         # Initialize RealSense pipeline
@@ -82,12 +96,26 @@ class RealSenseD435i:
             # sensor.set_option(rs.option.white_balance, 3500)  # or a value suited for your environment
         else:
             print("No RealSense Detected")
+            return
         
         # config alignment primitive with color as its target stream:
         self.align = rs.align(rs.stream.color)
         
         # default last pass values
-        self.last_image = None
+        self.colour_image = None
+        self.depth_image = None
+        
+        # Initialize Aruco parameters
+        self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_6X6_50)
+        self.aruco_params = aruco.DetectorParameters()
+
+        # Approximate intrinsics
+        self.camera_matrix = np.array([
+            [self.intrinsics.fx,  0, self.intrinsics.ppx],
+            [0,  self.intrinsics.fy, self.intrinsics.ppy],
+            [0,  0,   1]
+        ])
+        self.dist_coeffs = np.array(self.intrinsics.coeffs)
         
     # Helper check if a realsense device is connected
     def is_connected(self):
@@ -114,45 +142,18 @@ class RealSenseD435i:
     def stop(self):
         self.pipeline.stop()
     
-    # return last recorded distance
-    def distance_to_subject(self):
-        return float(self.last_distance)
-    
     # Helper gets points position respective to colour camera    
-    def pixel_to_global(self, depth_image, pixel_pt):
-        if depth_image is not None and self.intrinsics is not None and pixel_pt[0]<self.intrinsics.height and pixel_pt[1]<self.intrinsics.width:
-            [x,y,z] = rs.rs2_deproject_pixel_to_point(self.intrinsics, (pixel_pt[0],pixel_pt[1] ), depth_image[pixel_pt[0],pixel_pt[1] ]*0.001)
+    def pixel_to_global(self, depth_image, pixel_pt, depth_offset=0.0):
+        cX, cY = pixel_pt
+        if depth_image is not None and self.intrinsics is not None and cX < self.intrinsics.width and cY < self.intrinsics.height:
+            [x,y,z] = rs.rs2_deproject_pixel_to_point(self.intrinsics, (cX, cY), depth_image[cY,cX]*0.001 + depth_offset)
             print("fine")
-            return [x, y, z]
-        elif pixel_pt[0]>self.intrinsics.width or pixel_pt[1]>self.intrinsics.height:
+            return (x, y, z)
+        elif cX > self.intrinsics.width or cY > self.intrinsics.height:
             print("Pixel out of bounds")
             return None
         else:
             return None
-    
-    # getter for last image
-    def get_image(self):
-        return self.last_image
-    
-   # OLD shape classifier
-    def classify_shape_polyapprox(self, contour):
-        # Polygonal approximation (Does not work due to struggling differentiating the faces with contours)
-        peri = cv2.arcLength(contour, True)
-        approx = cv2.approxPolyDP(contour, 0.02 * peri, True) # May need to find face among approximations
-        vertices = len(approx)
-        area = cv2.contourArea(contour)
-
-        shape = ObjectShape.UNKNOWN
-        if vertices == 3:
-            shape = ObjectShape.TRIANGULAR_PRISM
-        elif vertices == 4:
-            shape = ObjectShape.SQUARE_PRISM
-        elif 5 <= vertices <= 6:
-            shape = ObjectShape.HEXAGONAL_PRISM
-            
-        is_bin = (area > MIN_BIN_AREA_THRESHOLD)
-        
-        return shape, is_bin, approx
     
     # TODO: Implement shape classification
     # Point cloud method to classify shape or 
@@ -162,20 +163,17 @@ class RealSenseD435i:
         approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
         vertices = len(approx)
         area = cv2.contourArea(contour)
-
-        shape = ObjectShape.CYLINDER
         zero_mask = np.zeros((self.intrinsics.height, self.intrinsics.width), dtype=np.uint8)
         mask = cv2.drawContours(zero_mask, [contour], -1, (0, 255, 0), -1)
-        # shape, _, _ = self.fit_shape(depth_image, mask)
-            
-        # is_bin = self.is_bin_helper(contour, depth_image, mask)
-        is_bin = cv2.contourArea(contour) > MIN_BIN_AREA_THRESHOLD
         
+        shape = ObjectShape.CYLINDER
+        # TODO: Change to use qr scaleing method to determine bin size / just qr says if it is a bin
+        is_bin = cv2.contourArea(contour) > MIN_BIN_AREA_THRESHOLD       
+        # is_bin = self.is_bin_helper(contour, depth_image, mask)
+                
         return shape, is_bin, approx
     
     # Helper to determine if contour likely represents a bin
-    # is vulnerable to occlusion and angle of view
-    # good enough for before using point cloud method for more accurate info
     def is_bin_helper(self, contour, depth_img, mask):
         # Get average depth inside the contour
         depth_values = depth_img[mask == 255]
@@ -193,147 +191,195 @@ class RealSenseD435i:
         
         return (width_m > MIN_BIN_DIM_THRESHOLD or height_m > MIN_BIN_DIM_THRESHOLD)
     
-    # Convert masked depth image to an Open3D point cloud.
-    def mask_to_pointcloud(self, depth_frame, mask):
-        indices = np.where(mask > 0)
-        z = depth_frame[indices] / 1000.0  # mm → m
-        u = indices[1]
-        v = indices[0]
-        x = (u - self.intrinsics.ppx) * z / self.intrinsics.fx
-        y = (v - self.intrinsics.ppy) * z / self.intrinsics.fy
+    def get_colour_masks(self):
+        if self.colour_image is None:
+            return None, None
+        masks = {}
+        complete_mask = np.zeros(self.colour_image.shape[:2], dtype=np.uint8)
+        hsv_image = cv2.cvtColor(self.colour_image, cv2.COLOR_BGR2HSV)
 
-        points = np.vstack((x, y, z)).T
-        cloud = o3d.geometry.PointCloud()
-        cloud.points = o3d.utility.Vector3dVector(points)
-        return cloud
-
-    # Estimate number of flat faces using convex hull.
-    def count_hull_faces(self, pcd):
-        try:
-            hull, _ = pcd.compute_convex_hull()
-            triangles = np.asarray(hull.triangles)
-            vertices = np.asarray(hull.vertices)
-            verts = np.asarray(hull.vertices)
-            mesh = hull
-
-            # Compute normals for each triangle
-            triangle_normals = np.asarray(mesh.triangle_normals)
-
-            # Cluster normals by angle similarity
-            clusters = []
-            threshold = np.deg2rad(15)  # within 15 degrees
-            for n in triangle_normals:
-                matched = False
-                for c in clusters:
-                    if np.arccos(np.clip(np.dot(n, c), -1.0, 1.0)) < threshold:
-                        matched = True
-                        break
-                if not matched:
-                    clusters.append(n)
-            return len(clusters)
-        except Exception:
-            return 0
-
-    ### Fit geometric model to classify prism shape.
-    def fit_shape(self, depth_frame, mask):
-        pcd = self.mask_to_pointcloud(depth_frame, mask)
-        if len(pcd.points) < 100:
-            return ObjectShape.UNKNOWN, None, 0
-
-        # Clean noise
-        pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=1.0)
-
-        # Get bounding box info
-        bbox = pcd.get_oriented_bounding_box()
-        extents = bbox.extent
-        aspect = np.sort(extents) / np.max(extents)
-
-        # Compute convex hull and count flat faces
-        n_faces = self.count_hull_faces(pcd)
-
-        # --- Infer shape based on faces + proportions ---
-        if n_faces == 0:
-            shape = ObjectShape.UNKNOWN
-        elif n_faces <= 6:
-            shape = ObjectShape.TRIANGULAR_PRISM
-        elif n_faces <= 8:
-            shape = ObjectShape.SQUARE_PRISM
-        elif n_faces <= 12:
-            shape = ObjectShape.HEXAGONAL_PRISM
-        else:
-            shape = ObjectShape.CYLINDER
+        for colour_range in ObjectColour:
+            if colour_range == ObjectColour.RED2:
+                continue
+            # Create a mask for the current colour range
+            mask = cv2.inRange(hsv_image, colour_range.lower, colour_range.upper)
+            if colour_range == ObjectColour.RED:
+                # Combine masks for RED and RED2
+                mask2 = cv2.inRange(hsv_image, ObjectColour.RED2.lower, ObjectColour.RED2.upper)
+                mask = cv2.bitwise_or(mask, mask2)
             
-        # Catch flat objects
-        if aspect[0] < 0.2:
-            shape = ObjectShape.UNKNOWN
-
-        center = bbox.center
-        return shape, center, n_faces
+            # Apply morphological operations to clean up the mask
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5), np.uint8))
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8), iterations=5)
+            # mask = cv2.GaussianBlur(mask, (5, 5), 0)
+            
+            masks[colour_range] = mask
+            complete_mask = cv2.bitwise_or(complete_mask, mask)
+        
+        return masks, complete_mask
     
-    def detect_objects(self, colour_img, depth_img):
-        # print(self.intrinsics)
-        # print(depth_img)
-        # Initialize msgs
+    def get_colour_contours(self, masks):
+        all_contours = []
+        for colour, mask in masks.items():
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for contour in contours:
+                area = cv2.contourArea(contour)
+                if area > 500 and area < 50000:
+                    all_contours.append((colour, contour))
+        return all_contours
+    
+    def find_aruco(self, contour = None):
+        if self.colour_image is None:
+            return None, None, None, None
+        
+        x,y = 0,0
+        if contour is not None:
+            x, y, w_box, h_box = cv2.boundingRect(contour)
+            roi = self.colour_image[y:y+h_box, x:x+w_box]
+            gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)         
+        else:
+            gray = cv2.cvtColor(self.colour_image, cv2.COLOR_BGR2GRAY)
+    
+        corners, ids, rejected = aruco.detectMarkers(gray, self.aruco_dict, parameters=self.aruco_params)
+        
+        if contour is not None:
+            # Adjust corners to full image coordinates
+            for pts in corners:
+                pts += np.array([[x, y]])
+        
+        tvecs, rvecs = None, None
+        centers = []
+        if ids is not None:
+            for i in range(len(ids)):
+                pts = corners[i][0]
+                Cx = int(pts[:,0].mean())
+                Cy = int(pts[:,1].mean())
+                centers.append((Cx, Cy))
+            rvecs, tvecs, _ = aruco.estimatePoseSingleMarkers(
+                corners, MARKER_SIZE, self.camera_matrix, self.dist_coeffs
+            )
+        
+        return ids, tvecs, rvecs, centers
+    
+    def get_aruco_info(self, id):
+        if id is None:
+            return ObjectShape.UNKNOWN, False, (0,0,0)
+        
+        id_int = int(id)
+        if id_int in object_info:
+            info = object_info[id_int]
+            return info["shape"], info["is_bin"], info["tf_to_centre"]
+        else:
+            return ObjectShape.UNKNOWN, False, (0,0,0)
+    
+    # TODO: test this function
+    def point_transform(self, point, orientation, transform):
+        R, _ = cv2.Rodrigues(orientation)
+        t = np.array(point).reshape((3,1))
+        offset = np.array(transform).reshape((3,1))
+        return R @ offset + t
+    
+    def detect_objects(self):
         objects = []
         num_detected = 0
 
-        if colour_img is None:
-            return None, None
-        annotated = colour_img.copy()
+        if self.colour_image is None or self.depth_image is None:
+            return None, None, None
+        annotated = self.colour_image.copy()
         
         # Convert BGR to HSV
-        hsv_image = cv2.cvtColor(colour_img, cv2.COLOR_BGR2HSV)
+        hsv_image = cv2.cvtColor(self.colour_image, cv2.COLOR_BGR2HSV)
 
+        # TODO: Tune these values as needed
         # Define area thresholds # To be project parameters
-        min_area = 500
-        max_area = 50000
+        min_area = 100
+        max_area = 100000
         
-        # Loop through each colour range and detect objects of that colour
-        for colour_range in ObjectColour:
-            mask = cv2.inRange(hsv_image, colour_range.lower, colour_range.upper)
-            # MIGHT NEED TO ADD MORPHOLOGICAL OPERATIONS HERE
-            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8))
-            # mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5), np.uint8))
-            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # Get masks for each colour range
+        masks, complete_mask = self.get_colour_masks()
+        
+        # Get all contours from all colour masks
+        contours = self.get_colour_contours(masks)  
 
-            for contour in contours:
-                area = cv2.contourArea(contour)
-                if area < min_area or area > max_area:
-                    continue
+        # Loop through each contour to classify and locate objects
+        for colour_range, contour in contours:
+            # detect aruco marker 
+            ids, tvecs, rvecs, centers = self.find_aruco(contour)
             
+            if ids is not None and tvecs is not None and rvecs is not None and centers is not None:
+                # ArUco detected, use it to classify shape
+                for idx, id in enumerate(ids):
+                    shape, is_bin, transform = self.get_aruco_info(id)
+                    
+                    cX, cY = centers[idx]
+                                
+                    num_detected += 1        
+                    # Create and append marker for visualization
+                    cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
+                    bin_str = "BIN" if is_bin else "OBJ"
+                    # cX,cY = self.intrinsics.width//2, self.intrinsics.height//2
+                    global_position = self.pixel_to_global(self.depth_image, [cX, cY])
+                    pre_global = np.array(global_position).reshape((3,1))
+                    global_position = self.point_transform(global_position, rvecs[idx][0], transform)
+                    cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
+                    # cv2.putText(annotated, f"A-{colour_range.name}-{shape.name}-{bin_str}-({(global_position)})", (cX + 10, cY - 10),
+                    #     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    # a,b,c = global_position if global_position is not None else (0,0,0)
+                    # cv2.putText(annotated, f"A-{a:.3f}-{b:.3f}-{c:.3f})", (cX + 10, cY - 10),
+                        # cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    print(f"diff:{global_position-pre_global}")
+                    cv2.putText(annotated, f"A-{global_position-pre_global})", (cX + 10, cY - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                        
+                    objects.append({
+                        'id': num_detected,
+                        'colour': colour_range.name,
+                        'shape': shape.name,
+                        'is_bin': is_bin,
+                        'img_position': (cX,cY),
+                        'global_position': global_position
+                        })
+
+                    # Draw the center on the original image for opencv visualization
+                    cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
+            
+            else:
+                # No ArUco detected, classify shape normally    
                 moments = cv2.moments(contour)
                 if moments['m00'] != 0:
-                    # Calculate the center of the object
+                    # Calculate the center of the contour object
                     cX = int(moments['m10'] / moments['m00'])
                     cY = int(moments['m01'] / moments['m00'])
                     
-                    # Convert the pixel coordinates to 3D world coordinates
-                    global_position = self.pixel_to_global(depth_img, [cX, cY])
-                    if global_position is not None:
-                        # Append the object to the list
-                        shape, is_bin, approx = self.classify_shape(contour, depth_img)
-                        num_detected += 1
-                            
-                        # Create and append marker for visualization
-                        cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
-                        cv2.putText(annotated, f"{colour_range.name}-{shape.name}-{is_bin}-({global_position})", (cX + 10, cY - 10),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    num_detected += 1        
+                    shape, is_bin, _ = self.classify_shape(contour, None)
+                    # Create and append marker for visualization
+                    cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
+                    bin_str = "BIN" if is_bin else "OBJ"
+                    # cX,cY = 0,0
+                    global_position = self.pixel_to_global(self.depth_image, [cX, cY], depth_offset=0.04 if is_bin else 0.02)
+                    # global_position = self.point_transform(global_position, (0,0,0), (0,0,-0.04) if is_bin else (0,0,-0.02))
+                    # cv2.putText(annotated, f"{colour_range.name}-{shape.name}-{bin_str}-({global_position})", (cX + 10, cY - 10),
+                        # cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2
+                    a,b,c = global_position if global_position is not None else (0,0,0)
+                    cv2.putText(annotated, f"B-{a:.3f}-{b:.3f}-{c:.3f})", (cX + 10, cY - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                         
-                        objects.append({
-                            'id': num_detected,
-                            'colour': colour_range.name,
-                            'shape': shape.name,
-                            'is_bin': is_bin,
-                            'position': global_position
+                    objects.append({
+                        'id': num_detected,
+                        'colour': colour_range.name,
+                        'shape': shape.name,
+                        'is_bin': is_bin,
+                        'img_position': (cX,cY),
+                        'global_position': global_position
                         })
-                        
-                    # Show the mask image
-                    cv2.imshow("Mask", mask)
-                    cv2.waitKey(1)  # Wait for a brief moment to update the window
+
+                    # Draw the center on the original image for opencv visualization
+                    cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
 
         # Sort detections by colour and shape for consistent ordering
         # detections.sort(key=lambda d: (d['colour'], d['shape']))
-        return objects, annotated
+        return objects, annotated, complete_mask
     
     # Main loop to update values, and OPTIONALLY display video and depth feed
     def run(self, test=False):
@@ -342,46 +388,48 @@ class RealSenseD435i:
                 tic = time.process_time() if test else 0
 
                 # Grab latest images from RealSense
-                depth_image, color_image, depth_frame = self.get_frames()
-                if depth_image is None or color_image is None:
+                self.depth_image, self.colour_image, depth_frame = self.get_frames()
+                if self.depth_image is None or self.colour_image is None:
                     continue
                     
                 time.sleep(0.001)
                                 
                 # Do the object detection to find keypoints
                 
-                objects, annotated_image = self.detect_objects(color_image, depth_image)
+                objects, annotated_image, complete_mask = self.detect_objects()
                 if objects is not None:
                     print(f"Detected {len(objects)} objects : ")
                     for obj in objects:
-                        print(obj)
+                        print(f" - ID: {obj['id']}, Colour: {obj['colour']}, Shape: {obj['shape']}, Image Position: {obj['img_position']}, Global Position: {obj['global_position']}, Is Bin: {obj['is_bin']}")
                     print("\n")
-                if annotated_image is not None:
+                    
+                if annotated_image is not None and complete_mask is not None:
                     cv2.imshow("Annotated", annotated_image)
+                    cv2.imshow("Complete Mask", complete_mask)
                     cv2.waitKey(1)
 
                 # Adding visualisation markers and depth image for demo/testing
-                if test and color_image is not None:
-                    print(f"\nRun Loop Time  (PRE DISPLAY): {1000*(time.process_time()-tic)}ms\n")
+                if test and self.colour_image is not None:
+                    # print(f"\nRun Loop Time  (PRE DISPLAY): {1000*(time.process_time()-tic)}ms\n")
                     
-                    # Convert depth to color
-                    depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
+                    # # Convert depth to color
+                    # depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(self.depth_image, alpha=0.03), cv2.COLORMAP_JET)
                 
-                    depth_colormap_dim = depth_colormap.shape
-                    color_colormap_dim = color_image.shape
+                    # depth_colormap_dim = depth_colormap.shape
+                    # color_colormap_dim = self.colour_image.shape
 
-                    # If depth and color resolutions are different, resize color image to match depth image for display
-                    if depth_colormap_dim != color_colormap_dim:
-                        resized_color_image = cv2.resize(color_image, dsize=(depth_colormap_dim[1], depth_colormap_dim[0]), interpolation=cv2.INTER_AREA)
-                        images = np.hstack((resized_color_image, depth_colormap))
-                    else:
-                        images = np.hstack((color_image, depth_colormap))
+                    # # If depth and color resolutions are different, resize color image to match depth image for display
+                    # if depth_colormap_dim != color_colormap_dim:
+                    #     resized_color_image = cv2.resize(self.colour_image, dsize=(depth_colormap_dim[1], depth_colormap_dim[0]), interpolation=cv2.INTER_AREA)
+                    #     images = np.hstack((resized_color_image, depth_colormap))
+                    # else:
+                    #     images = np.hstack((self.colour_image, depth_colormap))
 
-                    # Display the depth and color images
-                    cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-                    cv2.imshow('RealSense', images)
+                    # # Display the depth and color images
+                    # cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
+                    # cv2.imshow('RealSense', images)
 
-                    print(f"\nRun Loop Time (POST DISPLAY): {1000*(time.process_time()-tic)}ms\n")
+                    # print(f"\nRun Loop Time (POST DISPLAY): {1000*(time.process_time()-tic)}ms\n")
                     
                     # Exit the loop when 'q' is pressed
                     if cv2.waitKey(1) & 0xFF == ord('q'):

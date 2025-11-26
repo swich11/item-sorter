@@ -100,6 +100,13 @@ def generate_launch_description():
             robot_description_semantic,
         ],
     )
+    arduino_bridge_node = Node(
+        package="teensy_pkg",
+        executable="util_arduino_node",
+        name="util_arduino_node",
+        output="screen",
+    )
+
     # # Generate launch description with multiple components
     # container = ComposableNodeContainer(
     #     name="hybrid_planning_container",
@@ -140,4 +147,4 @@ def generate_launch_description():
     #     output="screen",
     # )
 
-    return launch.LaunchDescription([planner_node])
+    return launch.LaunchDescription([planner_node, arduino_bridge_node])
