@@ -1,5 +1,6 @@
 import rclpy
 import cv2
+import cv2.aruco as aruco
 import tf2_ros
 import os
 import numpy as np
@@ -20,6 +21,7 @@ from enum import Enum
 # TODO: make project variables
 MIN_BIN_AREA_THRESHOLD = 1500 # TO ADJUST
 IS_TEST = True  # Set to True to enable test mode
+MARKER_SIZE = 0.025  # Marker size in meters
 
 # Define object colours with their HSV ranges
 # Simply need to add more colours here if needed no other code changes required
@@ -47,6 +49,7 @@ class ObjectShape(Enum):
     STAR_PRISM = 5
     HEXAGONAL_PRISM = 6
     SPHERE = 7
+    CUBE = 8
 
     UNKNOWN = 0
     
@@ -59,7 +62,18 @@ class ObjectShape(Enum):
         elif self == ObjectShape.SPHERE:
             return Marker.SPHERE
         else:
-            return Marker.SPHERE  # Default marker type
+            return Marker.CYLINDER  # Default marker type
+        
+object_info = {
+    0: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,-0.02), "marker_size": 0.025},
+    1: {"shape" : ObjectShape.SPHERE, "is_bin" : False, "tf_to_centre" : (0,0,-0.02), "marker_size": 0.025},
+    2: {"shape" : ObjectShape.CUBE, "is_bin" : False, "tf_to_centre" : (0,0, -0.02) , "marker_size": 0.025},
+    3: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,-0.02) , "marker_size": 0.025},
+    4: {"shape" : ObjectShape.CYLINDER, "is_bin" : True, "tf_to_centre" : (0,0,-0.02)   , "marker_size": 0.04},
+    5: {"shape" : ObjectShape.RECTANGULAR_PRISM, "is_bin" : True, "tf_to_centre" : (0,0,-0.02) , "marker_size": 0.04},
+    # ... add more as needed
+    49: {"shape" : ObjectShape.UNKNOWN, "is_bin" : True, "tf_to_centre" : (0,0,-0.04) , "marker_size": 0.04},
+}
 
 class objectDetect(Node):
 
@@ -76,9 +90,15 @@ class objectDetect(Node):
         self.routine_timer = self.create_timer(1, self.routine_callback)
 
         # Publishers
-        self.object_pub = self.create_publisher(LabelledPoseArray, "/base/objects/labelled_pose_array", 10)
-        self.goal_pub = self.create_publisher(LabelledPoseArray, "/base/objects/labelled_pose_array", 10) 
-        self.marker_pub = self.create_publisher(MarkerArray, "/base/objects/markers", 10)
+        self.object_pub = self.create_publisher(LabelledPoseArray, "/camera/objects/labelled_pose_array", 10)
+        self.goal_pub = self.create_publisher(LabelledPoseArray, "/camera/goals/labelled_pose_array", 10) 
+        self.marker_pub = self.create_publisher(MarkerArray, "/camera/markers", 10)
+        
+        # Initialize Aruco parameters
+        self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_6X6_50)
+        self.aruco_params = aruco.DetectorParameters()
+        self.camera_matrix = None # updated with intrinsics
+        self.dist_coeffs = None
         
         # Transformation Interface
         self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
@@ -107,6 +127,13 @@ class objectDetect(Node):
             elif cameraInfo.distortion_model == 'equidistant':
                 self.intrinsics.model = rs.distortion.kannala_brandt4
             self.intrinsics.coeffs = [i for i in cameraInfo.d]
+            
+            self.camera_matrix = np.array([
+                [self.intrinsics.fx,  0, self.intrinsics.ppx],
+                [0,  self.intrinsics.fy, self.intrinsics.ppy],
+                [0,  0,   1]
+            ])
+            self.dist_coeffs = np.array(self.intrinsics.coeffs)
         except CvBridgeError as e:
             print(e)
             return
@@ -125,9 +152,11 @@ class objectDetect(Node):
         except Exception as e:
             self.get_logger().error(f"Error in depth_img_callback: {str(e)}")
 
-    def pixel_to_global(self, pixel_pt):
-        if self.depth_image is not None and self.intrinsics is not None and pixel_pt[0]<self.intrinsics.height and pixel_pt[1]<self.intrinsics.width:
-            [x,y,z] = rs.rs2_deproject_pixel_to_point(self.intrinsics, (pixel_pt[0],pixel_pt[1] ), self.depth_image[pixel_pt[0],pixel_pt[1] ]*0.001)
+    # TODO : Check axis
+    def pixel_to_global(self, pixel_pt, depth_offset=0.0):
+        cX, cY = pixel_pt
+        if self.depth_image is not None and self.intrinsics is not None and cX < self.intrinsics.width and cY < self.intrinsics.height:
+            [x,y,z] = rs.rs2_deproject_pixel_to_point(self.intrinsics, (cX, cY), self.depth_image[cY,cX]*0.001 + depth_offset)
             return [x, y, z]
         else:
             return None
@@ -142,7 +171,7 @@ class objectDetect(Node):
         peri = cv2.arcLength(contour, True)
         approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
         
-        shape = ObjectShape.CYLINDER  # Default shape
+        shape = ObjectShape.UNKNOWN  # Default shape
         
         area = cv2.contourArea(contour)
         is_bin = area > MIN_BIN_AREA_THRESHOLD
@@ -269,6 +298,84 @@ class objectDetect(Node):
                 if area > 500 and area < 50000:
                     all_contours.append((colour, contour))
         return all_contours
+    
+    def find_aruco(self, contour = None):
+        if self.colour_image is None or self.camera_matrix is None or self.dist_coeffs is None or self.intrinsics is None:
+            return None, None, None, None
+        
+        x,y = 0,0
+        tol = int(self.intrinsics.width // 10)  # 10% tolerance
+        # make ROI around contour for aruco detection
+        if contour is not None:
+            x, y, w_box, h_box = cv2.boundingRect(contour)
+            roi = self.colour_image[max(y-tol,0):min(y+h_box+tol,self.colour_image.shape[0]), max(x-tol,0):min(x+w_box+tol,self.colour_image.shape[1])]
+            gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)         
+        else:
+            gray = cv2.cvtColor(self.colour_image, cv2.COLOR_BGR2GRAY)
+    
+        corners, ids, rejected = aruco.detectMarkers(gray, self.aruco_dict, parameters=self.aruco_params)
+        
+        # Adjust corners from ROI coordinates to full image coordinates
+        if contour is not None:
+            for pts in corners:
+                pts += np.array([[max(x-tol,0), max(y-tol,0)]])
+        
+        tvecs, rvecs = [], []
+        centers = []
+        if ids is not None:
+            for i in range(len(ids)):
+                pts = corners[i][0]
+                Cx = int(pts[:,0].mean())
+                Cy = int(pts[:,1].mean())
+                centers.append((Cx, Cy))
+                rvec, tvec, _ = aruco.estimatePoseSingleMarkers(
+                    corners[i], self.get_aruco_size(ids[i]), self.camera_matrix, self.dist_coeffs
+                )
+                rvecs.append(rvec)
+                tvecs.append(tvec)
+        
+        return ids, tvecs, rvecs, centers
+    
+    def get_aruco_size(self, id):
+        if id is None:
+            return MARKER_SIZE
+        
+        id_int = int(id)
+        if id_int in object_info:
+            info = object_info[id_int]
+            return info["marker_size"]
+        else:
+            return MARKER_SIZE
+    
+    def get_aruco_info(self, id):
+        if id is None:
+            return ObjectShape.UNKNOWN, False, (0,0,0), MARKER_SIZE
+        
+        id_int = int(id)
+        if id_int in object_info:
+            info = object_info[id_int]
+            return info["shape"], info["is_bin"], info["tf_to_centre"], info["marker_size"]
+        else:
+            return ObjectShape.UNKNOWN, False, (0,0,0), MARKER_SIZE
+        
+    def point_transform(self, point, orientation, transform):
+        R, _ = cv2.Rodrigues(orientation)
+        t = np.array(transform).reshape((3,1))
+        transform = np.array(point).reshape((3,1))
+        return R @ transform + t
+    
+    def euler_distance(self, euler1, euler2):
+        return np.sqrt((euler1[0]-euler2[0])**2 + (euler1[1]-euler2[1])**2 + (euler1[2]-euler2[2])**2)
+    
+    def get_contour_center(self, contour):
+        moments = cv2.moments(contour)
+        is_valid = moments['m00'] != 0
+        if is_valid:
+            cX = int(moments['m10'] / moments['m00'])
+            cY = int(moments['m01'] / moments['m00'])
+            return cX, cY, is_valid
+        else:
+            return 0, 0, is_valid
 
     def detect_objects(self):
         # Initialize msgs
@@ -294,30 +401,153 @@ class objectDetect(Node):
 
         # Loop through each contour to classify and locate objects
         for colour_range, contour in contours:
-            moments = cv2.moments(contour)
-            if moments['m00'] != 0:
-                # Calculate the center of the object
-                cX = int(moments['m10'] / moments['m00'])
-                cY = int(moments['m01'] / moments['m00'])
+            # detect aruco marker 
+            ids, tvecs, rvecs, centers = self.find_aruco(contour)
+            
+            if ids is not None and tvecs is not None and rvecs is not None and centers is not None:
+                # ArUco detected, use it to classify shape
+                detected = []
                 
-                # Convert the pixel coordinates to 3D world coordinates
-                global_position = self.pixel_to_global([cX, cY])
-                if global_position is not None:
-                    # Append the object to the list
-                    num_detected += 1
-                    shape, is_bin, _ = self.classify_shape(contour)
-                    orientation = None # TODO: compute orientation for bin if needed using marker detection/point cloud
-                    if is_bin:
-                        goals.poses.append(self.make_goal(num_detected, colour_range, shape, global_position, orientation))
+                for idx, id in enumerate(ids):
+                    shape, is_bin, transform, _ = self.get_aruco_info(id)
+                    
+                    cX, cY = centers[idx]
+                                
+                    num_detected += 1        
+                    global_position = self.pixel_to_global([cX, cY])
+                    
+                    # Refine global position using contour center to prevent skewed detections
+                    moment_cX, moment_cY, is_valid = self.get_contour_center(contour)
+                    if is_valid:
+                    # if False:
+                        tx,ty,tz = transform
+                        R, _ = cv2.Rodrigues(rvecs[idx][0])
+                        SwapXZ = np.array( [[0,0,1],
+                                            [0,1,0],
+                                            [1,0,0]])
+                        rvec_flippedXZ, _ = cv2.Rodrigues(R @ SwapXZ)
+                        contour_global = self.pixel_to_global([moment_cX, moment_cY], depth_offset=0.04 if is_bin else 0.02)
+                        global_position0 = self.point_transform(global_position, rvecs[idx][0], (tx,ty,tz))
+                        global_position1 = self.point_transform(global_position, rvec_flippedXZ, (tx,ty,-tz))
+                        global_position2 = self.point_transform(global_position, rvecs[idx][0], (tx,ty,tz))
+                        global_position3 = self.point_transform(global_position, rvec_flippedXZ, (tx,ty,-tz))
+                        global_positions = [global_position0, global_position1, global_position2, global_position3]
+                        dists = [np.linalg.norm(np.array(contour_global)-np.array(gp)) for gp in global_positions]
+                        global_position = global_positions[dists.index(min(dists))]
                     else:
-                        objects.poses.append(self.make_object(num_detected, colour_range, shape, global_position))
+                        # as was before
+                        global_position = self.point_transform(global_position, rvecs[idx][0], transform)
+                    
+                    # convert rvec to orientation quaternion
+                    # orientation = self.euler_to_quaternion(rvecs[idx][0])
+                    detected.append({
+                        'id': num_detected,
+                        'colour': colour_range,
+                        'shape': shape,
+                        'is_bin': is_bin,
+                        'img_position': (cX,cY),
+                        'global_position': global_position,
+                        'rvec': rvecs[idx][0]
+                        })
+
+                # Combine matching objects that are very close together (likely double detections)
+                combined_detections = []
+                skip_indices = set()
+                for i in range(len(detected)):
+                    if i in skip_indices:
+                        continue
+                    obj1 = detected[i]
+                    combined_det = obj1.copy()
+                    for j in range(i+1, len(detected)):
+                        if j in skip_indices:
+                            continue
+                        obj2 = detected[j]
+                        if (obj1['shape'] == obj2['shape'] and
+                            obj1['colour'] == obj2['colour']):
+                            # Check distance between global positions
+                            dist = np.linalg.norm(np.array(obj1['global_position']) - np.array(obj2['global_position']))
+                            if dist < 0.03:  # Threshold distance to consider same object
+                                skip_indices.add(j)
+                                # Average the global positions
+                                combined_det['global_position'] = tuple(
+                                    (np.array(combined_det['global_position']) + np.array(obj2['global_position'])) / 2
+                                )
+                                combined_det['img_position'] = tuple(
+                                    (np.array(combined_det['img_position']) + np.array(obj2['img_position'])) // 2
+                                )
+                    combined_detections.append(combined_det)
+                detected = combined_detections
+                
+                # Output all detected objects from ArUco within this contour
+                for det in detected:
+                    rvec = det['rvec']
+                    orientation = None # TODO: compute orientation for bin if needed using rvec
+                    
+                    if det['is_bin']:
+                        goals.poses.append(self.make_goal(det['id'], det['colour'], det['shape'], det['global_position'], orientation))
+                    else:
+                        objects.poses.append(self.make_object(det['id'], det['colour'], det['shape'], det['global_position'], orientation))
                         
                     # Create and append marker for Rviz visualization
-                    Marker_msg = self.make_marker(num_detected, colour_range, global_position, is_bin, shape, orientation)
+                    Marker_msg = self.make_marker(det['id'], det['colour'], det['global_position'], det['is_bin'], det['shape'], orientation)
+                    markers.markers.append(Marker_msg)
+
+                    # Draw the center on the original image for opencv visualization
+                    cv2.circle(annotated, (det['img_position'][0], det['img_position'][1]), 5, (0, 0, 255), -1)
+                    
+            else:
+                # No ArUco detected, classify shape normally    
+                cX, cY, is_valid = self.get_contour_center(contour)
+                # No ArUco detected, classify shape normally    
+                if is_valid:
+                    num_detected += 1        
+                    shape, is_bin, _ = self.classify_shape(contour)
+                    # Create and append marker for visualization
+                    cv2.circle(annotated, (cX, cY), 5, (0, 255, 0), -1)
+                    # cX,cY = 0,0
+                    global_position = self.pixel_to_global([cX, cY], depth_offset=0.04 if is_bin else 0.02)
+                    # convert rvec to orientation quaternion
+                    # orientation = self.euler_to_quaternion(rvecs[idx][0])
+                    if is_bin:
+                        goals.poses.append(self.make_goal(num_detected, colour_range, shape, global_position, None))
+                    else:
+                        objects.poses.append(self.make_object(num_detected, colour_range, shape, global_position, None))
+                        
+                    # Create and append marker for Rviz visualization
+                    Marker_msg = self.make_marker(num_detected, colour_range, global_position, is_bin, shape, None)
                     markers.markers.append(Marker_msg)
 
                     # Draw the center on the original image for opencv visualization
                     cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
+
+        # Pre-Aruco detection code here if needed
+        # ---------------------------------------------------
+        # # Loop through each contour to classify and locate objects
+        # for colour_range, contour in contours:
+        #     moments = cv2.moments(contour)
+        #     if moments['m00'] != 0:
+        #         # Calculate the center of the object
+        #         cX = int(moments['m10'] / moments['m00'])
+        #         cY = int(moments['m01'] / moments['m00'])
+                
+        #         # Convert the pixel coordinates to 3D world coordinates
+        #         global_position = self.pixel_to_global([cX, cY])
+        #         if global_position is not None:
+        #             # Append the object to the list
+        #             num_detected += 1
+        #             shape, is_bin, _ = self.classify_shape(contour)
+        #             orientation = None # TODO: compute orientation for bin if needed using marker detection/point cloud
+        #             if is_bin:
+        #                 goals.poses.append(self.make_goal(num_detected, colour_range, shape, global_position, orientation))
+        #             else:
+        #                 objects.poses.append(self.make_object(num_detected, colour_range, shape, global_position))
+                        
+        #             # Create and append marker for Rviz visualization
+        #             Marker_msg = self.make_marker(num_detected, colour_range, global_position, is_bin, shape, orientation)
+        #             markers.markers.append(Marker_msg)
+
+        #             # Draw the center on the original image for opencv visualization
+        #             cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
 
         return goals, objects, markers, annotated, complete_mask
 
