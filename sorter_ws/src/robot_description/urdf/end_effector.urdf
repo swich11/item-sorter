@@ -1,0 +1,161 @@
+<?xml version="1.0"?>
+<robot name="parallel_gripper_end_effector">
+	<!--///////////////////////////////////////
+		 _     ___ _   _ _  ______  
+		| |   |_ _| \ | | |/ / ___| 
+		| |    | ||  \| | ' /\___ \ 
+		| |___ | || |\  | . \ ___) |
+		|_____|___|_| \_|_|\_\____/ 
+
+	/////////////////////////////////////// -->
+
+	<link name="wrist_3_link"/>
+
+	<!-- end effector mount connector housing (female) -->
+	<!-- <link name="end_effector_mount_connector">
+		<visual>
+			<geometry>
+				<mesh filename="package://robot_description/meshes/end_effector_mount_connector.stl"/>
+			</geometry>
+			<material name='dark_grey'>
+				<color rgba="0 0 0 0.5"/>
+			</material>
+			<origin xyz="0 0 10" rpy="0 0 0"/>
+		</visual>
+		
+		<collision>
+			<geometry>
+				<mesh filename="package://robot_description/meshes/end_effector_mount_connector.stl"/>
+			</geometry>
+			<origin xyz="0 0 10" rpy="0 0 0"/>
+		</collision>
+
+	</link> -->
+
+	<!-- end effector mount insert (male) -->
+	<link name="end_effector_main_frame">
+		<visual>
+			<geometry>
+				<mesh filename="package://robot_description/meshes/end_effector_main_frame.stl"/>
+			</geometry>
+			<material name='dark_grey'>
+				<color rgba="1.0 1.0 1.0 1.0"/>
+			</material>
+		</visual>
+			
+		<collision>
+			<geometry>
+				<mesh filename="package://robot_description/meshes/end_effector_main_frame.stl"/>
+			</geometry>
+		</collision>
+	</link>
+
+	<!-- gripper fingers (left) -->
+	<link name="gripper_finger_left">
+		<visual>
+			<geometry>
+				<mesh filename="package://robot_description/meshes/gripper_finger_left.stl"/>
+			</geometry>
+			<material name='dark_grey'/>
+		</visual>
+
+		<collision>
+			<geometry>
+				<mesh filename="package://robot_description/meshes/gripper_finger_left.stl"/>
+			</geometry>
+		</collision>
+	</link>	
+
+	<!-- gripper fingers (right) -->
+	<link name="gripper_finger_right">
+		<visual>
+			<geometry>
+				<mesh filename="package://robot_description/meshes/gripper_finger_right.stl"/>
+			</geometry>
+			<material name='dark_grey'/>
+		</visual>
+
+		<collision>
+			<geometry>
+				<mesh filename="package://robot_description/meshes/gripper_finger_right.stl"/>
+			</geometry>
+		</collision>
+	</link>	
+
+	<!-- slider rod upper -->
+	<link name="slider_rod_upper">
+		<visual>
+			<geometry>
+				<mesh filename="package://robot_description/meshes/slider_rod.stl"/>
+			</geometry>
+			<material name='dark_grey'/>
+		</visual>	
+	</link>	
+
+	<!-- slider rod lower -->
+	<link name="slider_rod_lower">
+		<visual>
+			<geometry>
+				<mesh filename="package://robot_description/meshes/slider_rod.stl"/>
+			</geometry>
+			<material name='dark_grey'/>
+		</visual>	
+	</link>	
+
+
+	<!--///////////////////////////////////////
+		 	 _  ___ ___ _   _ _____ ____  
+			| |/ _ \_ _| \ | |_   _/ ___| 
+		 _  | | | | | ||  \| | | | \___ \ 
+		| |_| | |_| | || |\  | | |  ___) |
+		 \___/ \___/___|_| \_| |_| |____/      
+
+	/////////////////////////////////////// -->
+
+	<!-- joint between wrist_link and end effector mount-->
+	<!-- <joint name="end_effector_mount_connector_joint" type="fixed">
+		<parent link="wrist_link"/>
+		<child link="end_effector_mount_connector"/>
+		<origin xyz="0 0 0" rpy="0 0 0"/>
+	</joint> -->
+
+	<!-- joint between main frame and end effector mount-->
+	<joint name="mount_frame_joint" type="fixed">
+		<parent link="wrist_3_link"/>
+		<child link="end_effector_main_frame"/>
+		<origin xyz="0 0 0" rpy="0 0 0"/>
+	</joint>
+
+	<!-- joint between main frame to slider 1-->
+	<joint name="frame_slider_upper_joint" type="fixed">
+		<parent link="end_effector_main_frame"/>
+		<child link="slider_rod_upper"/>
+		<origin xyz="0 36 40.5" rpy="0 0 0"/>
+	</joint>	
+
+	<!-- joint between main frame to slider 2-->
+	<joint name="frame_slider_lower_joint" type="fixed">
+		<parent link="end_effector_main_frame"/>
+		<child link="slider_rod_lower"/>
+		<origin xyz="0 36 10.5" rpy="0 0 0"/>
+	</joint>
+
+	<!-- joint between slider rod upper and left finger-->
+	<joint name="left_finger_slide" type="prismatic">
+		<parent link="slider_rod_upper"/>
+		<child link="gripper_finger_left"/>
+		<origin xyz="29 -76 -40" rpy="0 0 0"/>
+		<axis xyz="-1 0 0"/>
+		<limit lower="0" upper="29" effort="50" velocity="5"/>
+	</joint>
+
+	<!-- joint between slider rod upper and left finger-->
+	<joint name="right_finger_slide" type="prismatic">
+		<parent link="slider_rod_upper"/>
+		<child link="gripper_finger_right"/>
+		<origin xyz="-29 -76 -40" rpy="0 0 0"/>
+		<axis xyz="1 0 0"/>
+		<limit lower="0" upper="29" effort="50" velocity="5"/>
+	</joint>
+</robot>
+ 
