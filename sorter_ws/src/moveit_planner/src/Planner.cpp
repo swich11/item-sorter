@@ -3,6 +3,7 @@
 
 using std::placeholders::_1;
 using std::placeholders::_2;
+using namespace std::chrono_literals;
 
 
 
@@ -15,13 +16,13 @@ Planner::Planner() : Node("planner") {
 
     planning_scene_monitor = std::make_unique<planning_scene_monitor::PlanningSceneMonitor>(std::shared_ptr<rclcpp::Node>(this), "robot_description");
 
+
     std::string frame_id = move_group_interface->getPlanningFrame();
 
     std::vector<moveit_msgs::msg::CollisionObject> collision_objects = {
         generateCollisionObject(2.4, 0.04, 1.0, 0.85, -0.30, 0.5, frame_id, "backWall"),
         generateCollisionObject(0.04, 1.2, 1.0, -0.30, 0.25, 0.5, frame_id, "sideWall"),
         generateCollisionObject(2.4, 1.2, 0.04, 0.85, 0.25, -0.02, frame_id, "table"),
-        // generateCollisionObject(2.4, 1.2, 0.04, 0.85, 0.25, 0.8, frame_id, "roof"),
     };
     
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
@@ -35,6 +36,7 @@ Planner::Planner() : Node("planner") {
     setPathConstraints();
 
     grabbed_home_pose = false;
+    goal_pose_subscription = this->create_subscription<geometry_msgs::msg::Pose>("/brain/move/pose", 10, std::bind(&Planner::goalPoseCallback, this, _1));
     move_server = this->create_service<interfaces::srv::Move>("/moveit_planner/move", std::bind(&Planner::moveServiceCallback, this, _1, _2));
     arduino_pub = this->create_publisher<std_msgs::msg::String>("/arduino_cmds", 10);   // initialize publisher to send commands to Arduino
     RCLCPP_INFO(this->get_logger(), "Planner Launched. Ready for Commands");
@@ -44,6 +46,7 @@ void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::R
                                   std::shared_ptr<interfaces::srv::Move::Response> res) {
     RCLCPP_INFO(this->get_logger(), "Received Move Request.");
     if (!grabbed_home_pose) {
+        // Initialise the home pose
         home_pose = move_group_interface->getCurrentPose().pose;
         RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f, w: %f", home_pose.orientation.x, 
                                                                       home_pose.orientation.y,
@@ -54,10 +57,10 @@ void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::R
         home_pose.orientation.z = 0.0;
         home_pose.orientation.w = 0.0;
         grabbed_home_pose = true;
+        
+        // For now unless we add pose rotation
+        goal_pose.orientation = home_pose.orientation;
     }
-    geometry_msgs::msg::Pose target_pose;
-    target_pose.orientation = home_pose.orientation;
-    target_pose.position = req->start_pose.position;
     move_group_interface->stop();
     move(res, target_pose);
     RCLCPP_INFO(this->get_logger(), "At Start Pose.");
@@ -69,24 +72,36 @@ void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::R
     asyncMoveHome();
 }
 
-bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res,
-                   const geometry_msgs::msg::Pose &target_pose) {
-    RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f, w: %f", target_pose.orientation.x, 
-                                                                  target_pose.orientation.y,
-                                                                  target_pose.orientation.z,
-                                                                  target_pose.orientation.w);
-    if (move_group_interface->setPoseTarget(target_pose)) {
-        auto ret = move_group_interface->move();
-        if (ret == moveit::core::MoveItErrorCode::SUCCESS) {
-            res->success = true;
-        } else {
-            res->success = false;
-            res->message = "Move Failed: " + moveit::core::error_code_to_string(ret);
-            return false;
+
+bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res) {
+    RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f, w: %f", goal_pose.orientation.x, 
+                                                                  goal_pose.orientation.y,
+                                                                  goal_pose.orientation.z,
+                                                                  goal_pose.orientation.w);
+    moveit::planning_interface::MoveGroupInterface::Plan plan;
+    geometry_msgs::msg::Pose tracked_goal = home_pose; // Anything different to the goal_pose works
+    do {
+        if (!isPoseClose(tracked_goal, goal_pose)) {
+            // Change goal when the object moves
+            tracked_goal = goal_pose;
+            move_group_interface->setPoseTarget(tracked_goal);
+            move_group_interface->stop();
+            auto ret = move_group_interface->plan(plan);
+            if (ret != moveit::core::MoveItErrorCode::SUCCESS) {
+                RCLCPP_ERROR(this->get_logger(), "Planning Failed :(.");
+                res->success = false;
+                RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f", tracked_goal.position.x,
+                                                                       tracked_goal.position.y,
+                                                                       tracked_goal.position.z);
+                res->message = "Planning failed during move: " + moveit::core::error_code_to_string(ret);
+                return false;
+            }
+            move_group_interface->asyncExecute(plan);
         }
-    } else {
-        return false;
-    }
+        rclcpp::sleep_for(50ms);
+    } while (!move_group_interface->getMoveGroupClient().action_server_is_ready());
+
+    res->success = true;
     return true;
 }
 
@@ -175,6 +190,30 @@ geometry_msgs::msg::Pose Planner::generatePoseMsg(float x, float y, float z, flo
     pose.position.z = z;
     return pose;
 }
+
+
+bool Planner::isPoseClose(const geometry_msgs::msg::Pose &a,
+                          const geometry_msgs::msg::Pose &b) {    
+    return norm(a.position, b.position) < POSITION_PRECISION &&
+           norm(a.orientation, b.orientation) < ORIENTATION_PRECISION;
+}
+
+
+inline double Planner::norm(const geometry_msgs::msg::Point &a,
+                            const geometry_msgs::msg::Point &b) {
+    tf2::Vector3 v1 = tf2::Vector3(a.x, a.y, a.z);
+    tf2::Vector3 v2 = tf2::Vector3(b.x, b.y, b.z);
+    return (v1 - v2).length();
+}
+
+inline double Planner::norm(const geometry_msgs::msg::Quaternion &a,
+                            const geometry_msgs::msg::Quaternion &b) {
+    tf2::Quaternion q1 = tf2::Quaternion(a.x, a.y, a.z, a.w);
+    tf2::Quaternion q2 = tf2::Quaternion(b.x, b.y, b.z, b.w);
+    return q1.angleShortestPath(q2);
+}
+
+
 
 int main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
