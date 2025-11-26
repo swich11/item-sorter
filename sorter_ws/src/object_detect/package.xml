@@ -23,6 +23,7 @@
   <depend>cv_bridge</depend>
   <depend>pyrealsense2</depend>
   <depend>opencv-python</depend>
+  <depend>opencv-contrib-python</depend>
   <depend>open3d</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
