@@ -21,7 +21,6 @@ void PoseLookup::lookup_service_callback(
     try {
         auto transform = tf_buffer_->lookupTransform(
                             req->to_link, req->pose.header.frame_id, tf2::TimePointZero);           
-        
         tf2::doTransform(req->pose, res->pose, transform);
         RCLCPP_INFO(this->get_logger(), "Transform successful.");
         res->success = true;
