@@ -46,12 +46,14 @@ class ObjectShape(Enum):
     UNKNOWN = 0
 
 object_info = {
-    0: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,0)},
-    1: {"shape" : ObjectShape.SPHERE, "is_bin" : False, "tf_to_centre" : (0,0,0)},
-    2: {"shape" : ObjectShape.CUBE, "is_bin" : False, "tf_to_centre" : (0,0,0)},
-    3: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,0)},
-    4: {"shape" : ObjectShape.CYLINDER, "is_bin" : True, "tf_to_centre" : (0,0,0)},
-    5: {"shape" : ObjectShape.RECTANGULAR_PRISM, "is_bin" : True, "tf_to_centre" : (0,0,0)}
+    0: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,-0.02), "marker_size": 0.025},
+    1: {"shape" : ObjectShape.SPHERE, "is_bin" : False, "tf_to_centre" : (0,0,-0.02), "marker_size": 0.025},
+    2: {"shape" : ObjectShape.CUBE, "is_bin" : False, "tf_to_centre" : (0,0, -0.02) , "marker_size": 0.025},
+    3: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,-0.02) , "marker_size": 0.025},
+    4: {"shape" : ObjectShape.CYLINDER, "is_bin" : True, "tf_to_centre" : (0,0,-0.02)   , "marker_size": 0.04},
+    5: {"shape" : ObjectShape.RECTANGULAR_PRISM, "is_bin" : True, "tf_to_centre" : (0,0,-0.02) , "marker_size": 0.04},
+    # ... add more as needed
+    49: {"shape" : ObjectShape.UNKNOWN, "is_bin" : True, "tf_to_centre" : (0,0,-0.04) , "marker_size": 0.04},
 }
 
 class RealSenseD435i:
@@ -75,7 +77,7 @@ class RealSenseD435i:
         # Approximate intrinsics (good enough for testing)
         cap = cv2.VideoCapture(0)
         ret, frame = cap.read()
-        if not cap.isOpened():
+        if not cap.isOpened() or frame is None:
             print("❌ Could not open camera")
             exit()
         h, w = frame.shape[:2]
@@ -170,6 +172,17 @@ class RealSenseD435i:
         
         return ids, tvecs, rvecs, centers
     
+    def get_aruco_size(self, id):
+        if id is None:
+            return MARKER_SIZE
+        
+        id_int = int(id)
+        if id_int in object_info:
+            info = object_info[id_int]
+            return info["marker_size"]
+        else:
+            return MARKER_SIZE
+    
     def get_aruco_info(self, id):
         if id is None:
             return ObjectShape.UNKNOWN, False, (0,0,0)
@@ -180,6 +193,12 @@ class RealSenseD435i:
             return info["shape"], info["is_bin"], info["tf_to_centre"]
         else:
             return ObjectShape.UNKNOWN, False, (0,0,0)
+        
+    def point_transform(self, point, orientation, transform):
+        R, _ = cv2.Rodrigues(orientation)
+        t = np.array(point).reshape((3,1))
+        offset = np.array(transform).reshape((3,1))
+        return R @ offset + t
     
     def detect_objects(self):
         if self.colour_image is None:
@@ -201,18 +220,46 @@ class RealSenseD435i:
             # detect aruco marker 
             ids, tvecs, rvecs, centers = self.find_aruco(contour)
             
-            if ids is not None:
+            if ids is not None and tvecs is not None and rvecs is not None and centers is not None:
                 # ArUco detected, use it to classify shape
                 for idx, id in enumerate(ids):
                     shape, is_bin, transform = self.get_aruco_info(id)
                     
-                    if centers:
-                        cX, cY = centers[idx]
-                    else:
-                        cX, cY = 0, 0
+                    cX, cY = centers[idx]
                                 
                     num_detected += 1        
                     # Create and append marker for visualization
+                    
+                    ### 
+                    cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
+                    bin_str = "BIN" if is_bin else "OBJ"
+                    # cX,cY = self.intrinsics.width//2, self.intrinsics.height//2
+                    global_position = self.point_transform(tvecs[idx][0], rvecs[idx][0], transform)
+                    cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
+                    # cv2.putText(annotated, f"A-{colour_range.name}-{shape.name}-{bin_str}-({(global_position)})", (cX + 10, cY - 10),
+                    #     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    a,b,c = global_position if global_position is not None else (0,0,0)
+                    cv2.putText(annotated, f"A-{a:.3f}-{b:.3f}-{c:.3f})", (cX + 10, cY - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    # Draw 3D axis
+                    cv2.drawFrameAxes(annotated, self.camera_matrix, self.dist_coeffs, rvecs[idx], tvecs[idx], 0.03)
+                    print(f"diff:{global_position-pre_global}")
+                    # cv2.putText(annotated, f"A-{global_position-pre_global})", (cX + 10, cY - 10),
+                    #     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                        
+                    objects.append({
+                        'id': num_detected,
+                        'colour': colour_range.name,
+                        'shape': shape.name,
+                        'is_bin': is_bin,
+                        'img_position': (cX,cY),
+                        'global_position': global_position
+                        })
+                    
+                    
+                    ###
+                    
+                    
                     cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
                     bin_str = "BIN" if is_bin else "OBJ"
                     cv2.putText(annotated, f"A-{colour_range.name}-{shape.name}-{bin_str}-({(cX,cY)})", (cX + 10, cY - 10),
@@ -242,19 +289,19 @@ class RealSenseD435i:
                     # Create and append marker for visualization
                     cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
                     bin_str = "BIN" if is_bin else "OBJ"
-                    cv2.putText(annotated, f"{colour_range.name}-{shape.name}-{bin_str}-({(cX,cY)})", (cX + 10, cY - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    # cv2.putText(annotated, f"{colour_range.name}-{shape.name}-{bin_str}-({(cX,cY)})", (cX + 10, cY - 10),
+                    #     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                         
-                    objects.append({
-                        'id': num_detected,
-                        'colour': colour_range.name,
-                        'shape': shape.name,
-                        'is_bin': is_bin,
-                        'position': (cX,cY)
-                        })
+                    # objects.append({
+                    #     'id': num_detected,
+                    #     'colour': colour_range.name,
+                    #     'shape': shape.name,
+                    #     'is_bin': is_bin,
+                    #     'position': (cX,cY)
+                    #     })
 
                     # Draw the center on the original image for opencv visualization
-                    cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
+                    # cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
 
         return objects, annotated, complete_mask
     

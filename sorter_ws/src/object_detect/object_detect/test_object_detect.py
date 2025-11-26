@@ -17,10 +17,10 @@ MARKER_SIZE = 0.025  # Marker size in meters
 # Define object colours with their HSV ranges
 # Simply need to add more colours here if needed no other code changes required
 class ObjectColour(Enum):
-    RED    = ((0, 100, 65), (10, 255, 255))
-    RED2    = ((170, 100, 65), (180, 255, 255))
+    RED    = ((0, 90, 50), (10, 255, 255))
+    RED2    = ((170, 90, 50), (180, 255, 255))
     # GREEN   = ((35, 40, 40), (85, 255, 255))
-    BLUE    = ((100, 200, 30), (110, 255, 255))
+    BLUE    = ((100, 170, 30), (110, 255, 255))
     # YELLOW  = ((15, 100, 100), (35, 255, 255))
     # ALL   = ((0, 0, 0), (180, 255, 255))  # Special case to get all colours
 
@@ -46,14 +46,14 @@ class ObjectShape(Enum):
     UNKNOWN = 0
 
 object_info = {
-    0: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,-0.02)},
-    1: {"shape" : ObjectShape.SPHERE, "is_bin" : False, "tf_to_centre" : (0,0,-0.02)},
-    2: {"shape" : ObjectShape.CUBE, "is_bin" : False, "tf_to_centre" : (0,0, -0.02)},
-    3: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,-0.02)},
-    4: {"shape" : ObjectShape.CYLINDER, "is_bin" : True, "tf_to_centre" : (0,0,-0.02)},
-    5: {"shape" : ObjectShape.RECTANGULAR_PRISM, "is_bin" : True, "tf_to_centre" : (0,0,-0.02)},
+    0: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,-0.02), "marker_size": 0.025},
+    1: {"shape" : ObjectShape.SPHERE, "is_bin" : False, "tf_to_centre" : (0,0,-0.02), "marker_size": 0.025},
+    2: {"shape" : ObjectShape.CUBE, "is_bin" : False, "tf_to_centre" : (0,0, -0.02) , "marker_size": 0.025},
+    3: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,-0.02) , "marker_size": 0.025},
+    4: {"shape" : ObjectShape.CYLINDER, "is_bin" : True, "tf_to_centre" : (0,0,-0.02)   , "marker_size": 0.04},
+    5: {"shape" : ObjectShape.RECTANGULAR_PRISM, "is_bin" : True, "tf_to_centre" : (0,0,-0.02) , "marker_size": 0.04},
     # ... add more as needed
-    49: {"shape" : ObjectShape.UNKNOWN, "is_bin" : True, "tf_to_centre" : (0,0,-0.04)},
+    49: {"shape" : ObjectShape.UNKNOWN, "is_bin" : True, "tf_to_centre" : (0,0,-0.04) , "marker_size": 0.04},
 }
 
 class RealSenseD435i:
@@ -147,11 +147,11 @@ class RealSenseD435i:
         cX, cY = pixel_pt
         if depth_image is not None and self.intrinsics is not None and cX < self.intrinsics.width and cY < self.intrinsics.height:
             [x,y,z] = rs.rs2_deproject_pixel_to_point(self.intrinsics, (cX, cY), depth_image[cY,cX]*0.001 + depth_offset)
-            print("fine")
+            # print("fine")
             return (x, y, z)
-        elif cX > self.intrinsics.width or cY > self.intrinsics.height:
-            print("Pixel out of bounds")
-            return None
+        # elif cX > self.intrinsics.width or cY > self.intrinsics.height:
+        #     # print("Pixel out of bounds")
+        #     return None
         else:
             return None
     
@@ -166,9 +166,9 @@ class RealSenseD435i:
         zero_mask = np.zeros((self.intrinsics.height, self.intrinsics.width), dtype=np.uint8)
         mask = cv2.drawContours(zero_mask, [contour], -1, (0, 255, 0), -1)
         
-        shape = ObjectShape.CYLINDER
+        shape = ObjectShape.UNKNOWN
         # TODO: Change to use qr scaleing method to determine bin size / just qr says if it is a bin
-        is_bin = cv2.contourArea(contour) > MIN_BIN_AREA_THRESHOLD       
+        is_bin = cv2.contourArea(contour) > MIN_BIN_AREA_THRESHOLD     
         # is_bin = self.is_bin_helper(contour, depth_image, mask)
                 
         return shape, is_bin, approx
@@ -224,30 +224,31 @@ class RealSenseD435i:
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             for contour in contours:
                 area = cv2.contourArea(contour)
-                if area > 500 and area < 50000:
+                if area > 325 and area < 50000:
                     all_contours.append((colour, contour))
         return all_contours
     
     def find_aruco(self, contour = None):
-        if self.colour_image is None:
+        if self.colour_image is None or self.camera_matrix is None or self.dist_coeffs is None or self.intrinsics is None:
             return None, None, None, None
         
         x,y = 0,0
+        tol = int(self.intrinsics.width // 10)  # 10% tolerance
         if contour is not None:
             x, y, w_box, h_box = cv2.boundingRect(contour)
-            roi = self.colour_image[y:y+h_box, x:x+w_box]
+            roi = self.colour_image[max(y-tol,0):min(y+h_box+tol,self.colour_image.shape[0]), max(x-tol,0):min(x+w_box+tol,self.colour_image.shape[1])]
             gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)         
         else:
             gray = cv2.cvtColor(self.colour_image, cv2.COLOR_BGR2GRAY)
     
         corners, ids, rejected = aruco.detectMarkers(gray, self.aruco_dict, parameters=self.aruco_params)
         
+        # Adjust corners from ROI coordinates to full image coordinates
         if contour is not None:
-            # Adjust corners to full image coordinates
             for pts in corners:
-                pts += np.array([[x, y]])
+                pts += np.array([[max(x-tol,0), max(y-tol,0)]])
         
-        tvecs, rvecs = None, None
+        tvecs, rvecs = [], []
         centers = []
         if ids is not None:
             for i in range(len(ids)):
@@ -255,11 +256,24 @@ class RealSenseD435i:
                 Cx = int(pts[:,0].mean())
                 Cy = int(pts[:,1].mean())
                 centers.append((Cx, Cy))
-            rvecs, tvecs, _ = aruco.estimatePoseSingleMarkers(
-                corners, MARKER_SIZE, self.camera_matrix, self.dist_coeffs
-            )
+                rvec, tvec, _ = aruco.estimatePoseSingleMarkers(
+                    corners[i], self.get_aruco_size(ids[i]), self.camera_matrix, self.dist_coeffs
+                )
+                rvecs.append(rvec)
+                tvecs.append(tvec)
         
         return ids, tvecs, rvecs, centers
+    
+    def get_aruco_size(self, id):
+        if id is None:
+            return MARKER_SIZE
+        
+        id_int = int(id)
+        if id_int in object_info:
+            info = object_info[id_int]
+            return info["marker_size"]
+        else:
+            return MARKER_SIZE
     
     def get_aruco_info(self, id):
         if id is None:
@@ -272,12 +286,24 @@ class RealSenseD435i:
         else:
             return ObjectShape.UNKNOWN, False, (0,0,0)
     
-    # TODO: test this function
     def point_transform(self, point, orientation, transform):
         R, _ = cv2.Rodrigues(orientation)
         t = np.array(point).reshape((3,1))
         offset = np.array(transform).reshape((3,1))
         return R @ offset + t
+    
+    def euler_distance(self, euler1, euler2):
+        return np.sqrt((euler1[0]-euler2[0])**2 + (euler1[1]-euler2[1])**2 + (euler1[2]-euler2[2])**2)
+    
+    def get_contour_center(self, contour):
+        moments = cv2.moments(contour)
+        is_valid = moments['m00'] != 0
+        if is_valid:
+            cX = int(moments['m10'] / moments['m00'])
+            cY = int(moments['m01'] / moments['m00'])
+            return cX, cY, is_valid
+        else:
+            return 0, 0, is_valid
     
     def detect_objects(self):
         objects = []
@@ -286,9 +312,6 @@ class RealSenseD435i:
         if self.colour_image is None or self.depth_image is None:
             return None, None, None
         annotated = self.colour_image.copy()
-        
-        # Convert BGR to HSV
-        hsv_image = cv2.cvtColor(self.colour_image, cv2.COLOR_BGR2HSV)
 
         # TODO: Tune these values as needed
         # Define area thresholds # To be project parameters
@@ -317,19 +340,42 @@ class RealSenseD435i:
                     # Create and append marker for visualization
                     cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
                     bin_str = "BIN" if is_bin else "OBJ"
-                    # cX,cY = self.intrinsics.width//2, self.intrinsics.height//2
                     global_position = self.pixel_to_global(self.depth_image, [cX, cY])
                     pre_global = np.array(global_position).reshape((3,1))
-                    global_position = self.point_transform(global_position, rvecs[idx][0], transform)
+                    
+                    # Refine global position using contour center to prevent skewed detections
+                    moment_cX, moment_cY, is_valid = self.get_contour_center(contour)
+                    if is_valid:
+                    # if False:
+                        tx,ty,tz = transform
+                        R, _ = cv2.Rodrigues(rvecs[idx][0])
+                        SwapXZ = np.array( [[0,0,1],
+                                            [0,1,0],
+                                            [1,0,0]])
+                        rvec_flippedXZ, _ = cv2.Rodrigues(R @ SwapXZ)
+                        contour_global = self.pixel_to_global(self.depth_image, [moment_cX, moment_cY], depth_offset=0.04 if is_bin else 0.02)
+                        global_position0 = self.point_transform(global_position, rvecs[idx][0], (tx,ty,tz))
+                        global_position1 = self.point_transform(global_position, rvec_flippedXZ, (tx,ty,-tz))
+                        global_position2 = self.point_transform(global_position, rvecs[idx][0], (tx,ty,tz))
+                        global_position3 = self.point_transform(global_position, rvec_flippedXZ, (tx,ty,-tz))
+                        global_positions = [global_position0, global_position1, global_position2, global_position3]
+                        dists = [np.linalg.norm(np.array(contour_global)-np.array(gp)) for gp in global_positions]
+                        global_position = global_positions[dists.index(min(dists))]
+                    else:
+                        # as was before
+                        global_position = self.point_transform(global_position, rvecs[idx][0], transform)
+                    
                     cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
                     # cv2.putText(annotated, f"A-{colour_range.name}-{shape.name}-{bin_str}-({(global_position)})", (cX + 10, cY - 10),
                     #     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                     # a,b,c = global_position if global_position is not None else (0,0,0)
-                    # cv2.putText(annotated, f"A-{a:.3f}-{b:.3f}-{c:.3f})", (cX + 10, cY - 10),
-                        # cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-                    print(f"diff:{global_position-pre_global}")
-                    cv2.putText(annotated, f"A-{global_position-pre_global})", (cX + 10, cY - 10),
+                    cv2.putText(annotated, f"{id}:", (cX + 10, cY - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    # Draw 3D axis
+                    cv2.drawFrameAxes(annotated, self.camera_matrix, self.dist_coeffs, rvecs[idx], tvecs[idx], 0.03)
+                    # print(f"diff:{global_position-pre_global}")
+                    # cv2.putText(annotated, f"A-{global_position})", (cX + 10, cY - 10),
+                    #     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                         
                     objects.append({
                         'id': num_detected,
@@ -341,16 +387,12 @@ class RealSenseD435i:
                         })
 
                     # Draw the center on the original image for opencv visualization
-                    cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
+                    # cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
             
             else:
+                cX, cY, is_valid = self.get_contour_center(contour)
                 # No ArUco detected, classify shape normally    
-                moments = cv2.moments(contour)
-                if moments['m00'] != 0:
-                    # Calculate the center of the contour object
-                    cX = int(moments['m10'] / moments['m00'])
-                    cY = int(moments['m01'] / moments['m00'])
-                    
+                if is_valid:
                     num_detected += 1        
                     shape, is_bin, _ = self.classify_shape(contour, None)
                     # Create and append marker for visualization
@@ -361,9 +403,9 @@ class RealSenseD435i:
                     # global_position = self.point_transform(global_position, (0,0,0), (0,0,-0.04) if is_bin else (0,0,-0.02))
                     # cv2.putText(annotated, f"{colour_range.name}-{shape.name}-{bin_str}-({global_position})", (cX + 10, cY - 10),
                         # cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2
-                    a,b,c = global_position if global_position is not None else (0,0,0)
-                    cv2.putText(annotated, f"B-{a:.3f}-{b:.3f}-{c:.3f})", (cX + 10, cY - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    # a,b,c = global_position if global_position is not None else (0,0,0)
+                    # cv2.putText(annotated, f"B-{a:.3f}-{b:.3f}-{c:.3f})", (cX + 10, cY - 10),
+                    #     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                         
                     objects.append({
                         'id': num_detected,
@@ -375,7 +417,49 @@ class RealSenseD435i:
                         })
 
                     # Draw the center on the original image for opencv visualization
-                    cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
+                    # cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
+
+        # Sort objects by shape and colour
+        # This ensures consistent ordering for same detections
+        objects.sort(key=lambda d: (d['shape'], d['colour']))
+        print(f"Sorted Objects: {objects}")
+
+        # Combine matching objects that are very close together (likely double detections)
+        combined_objects = []
+        skip_indices = set()
+        for i in range(len(objects)):
+            if i in skip_indices:
+                continue
+            obj1 = objects[i]
+            combined_obj = obj1.copy()
+            for j in range(i+1, len(objects)):
+                if j in skip_indices:
+                    continue
+                obj2 = objects[j]
+                if (obj1['shape'] == obj2['shape'] and
+                    obj1['colour'] == obj2['colour']):
+                    # Check distance between global positions
+                    dist = np.linalg.norm(np.array(obj1['global_position']) - np.array(obj2['global_position']))
+                    if dist < 0.04:  # Threshold distance to consider same object
+                        skip_indices.add(j)
+                        # Average the global positions
+                        combined_obj['global_position'] = tuple(
+                            (np.array(combined_obj['global_position']) + np.array(obj2['global_position'])) / 2
+                        )
+                        combined_obj['img_position'] = tuple(
+                            (np.array(combined_obj['img_position']) + np.array(obj2['img_position'])) // 2
+                        )
+            combined_objects.append(combined_obj)
+        objects = combined_objects
+        
+        # Assign ids to each object
+
+        # visualize combined objects
+        for idx, obj in enumerate(objects):
+            cX, cY = obj['img_position']
+            cv2.putText(annotated, f"C-{idx+1}-{obj['colour']}-{obj['shape']}", (cX + 10, cY - 10),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            cv2.circle(annotated, (cX, cY), 7, (0, 255, 0), 2)
 
         # Sort detections by colour and shape for consistent ordering
         # detections.sort(key=lambda d: (d['colour'], d['shape']))
