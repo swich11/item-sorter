@@ -14,13 +14,14 @@ from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 from interfaces.msg import LabelledPoseArray, LabelledPose
 from visualization_msgs.msg import Marker, MarkerArray
+from rclpy.executors import MultiThreadedExecutor
 
 from enum import Enum
 
 # Constant Parameters 
 # TODO: make project variables
 MIN_BIN_AREA_THRESHOLD = 1500 # TO ADJUST
-IS_TEST = True  # Set to True to enable test mode
+IS_TEST = False  # Set to True to enable test mode
 MARKER_SIZE = 0.025  # Marker size in meters
 
 # Define object colours with their HSV ranges
@@ -300,7 +301,7 @@ class objectDetect(Node):
         return all_contours
     
     def find_aruco(self, contour = None):
-        if self.colour_image is None or self.camera_matrix is None or self.dist_coeffs is None or self.intrinsics is None:
+        if self.cv_image is None or self.camera_matrix is None or self.dist_coeffs is None or self.intrinsics is None:
             return None, None, None, None
         
         x,y = 0,0
@@ -308,10 +309,10 @@ class objectDetect(Node):
         # make ROI around contour for aruco detection
         if contour is not None:
             x, y, w_box, h_box = cv2.boundingRect(contour)
-            roi = self.colour_image[max(y-tol,0):min(y+h_box+tol,self.colour_image.shape[0]), max(x-tol,0):min(x+w_box+tol,self.colour_image.shape[1])]
+            roi = self.cv_image[max(y-tol,0):min(y+h_box+tol,self.cv_image.shape[0]), max(x-tol,0):min(x+w_box+tol,self.cv_image.shape[1])]
             gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)         
         else:
-            gray = cv2.cvtColor(self.colour_image, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2GRAY)
     
         corners, ids, rejected = aruco.detectMarkers(gray, self.aruco_dict, parameters=self.aruco_params)
         
@@ -631,17 +632,23 @@ class objectDetect(Node):
         self.goal_pub.publish(goals)
         self.marker_pub.publish(markers)
 
-        if annotated is not None and complete_mask is not None:
-            cv2.imshow('annotated', annotated)
-            cv2.imshow('complete_mask', complete_mask)
-            cv2.waitKey(1)
+        # if annotated is not None and complete_mask is not None:
+        #     cv2.imshow('annotated', annotated)
+        #     cv2.imshow('complete_mask', complete_mask)
+        #     cv2.waitKey(1)
         return
 
 def main():
     rclpy.init()
     object_detect = objectDetect()
-    rclpy.spin(object_detect)
-    rclpy.shutdown()
+    executor = MultiThreadedExecutor(num_threads=3)
+    executor.add_node(object_detect)
+    try:
+        executor.spin()
+    finally:
+        executor.shutdown()
+        object_detect.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
