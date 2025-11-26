@@ -57,20 +57,20 @@ class ObjectShape(Enum):
     def marker_type(self):
         if self == ObjectShape.CYLINDER:
             return Marker.CYLINDER
-        elif self in [ObjectShape.SQUARE_PRISM, ObjectShape.RECTANGULAR_PRISM]:
+        elif self in [ObjectShape.SQUARE_PRISM, ObjectShape.RECTANGULAR_PRISM, ObjectShape.CUBE]:
             return Marker.CUBE
         elif self == ObjectShape.SPHERE:
             return Marker.SPHERE
         else:
-            return Marker.CYLINDER  # Default marker type
+            return Marker.SPHERE  # Default marker type
         
 object_info = {
     0: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,-0.02), "marker_size": 0.025},
     1: {"shape" : ObjectShape.SPHERE, "is_bin" : False, "tf_to_centre" : (0,0,-0.02), "marker_size": 0.025},
     2: {"shape" : ObjectShape.CUBE, "is_bin" : False, "tf_to_centre" : (0,0, -0.02) , "marker_size": 0.025},
     3: {"shape" : ObjectShape.UNKNOWN, "is_bin" : False, "tf_to_centre" : (0,0,-0.02) , "marker_size": 0.025},
-    4: {"shape" : ObjectShape.CYLINDER, "is_bin" : True, "tf_to_centre" : (0,0,-0.02)   , "marker_size": 0.04},
-    5: {"shape" : ObjectShape.RECTANGULAR_PRISM, "is_bin" : True, "tf_to_centre" : (0,0,-0.02) , "marker_size": 0.04},
+    4: {"shape" : ObjectShape.CYLINDER, "is_bin" : True, "tf_to_centre" : (0,0,-0.04)   , "marker_size": 0.04},
+    5: {"shape" : ObjectShape.RECTANGULAR_PRISM, "is_bin" : True, "tf_to_centre" : (0,0,-0.04) , "marker_size": 0.04},
     # ... add more as needed
     49: {"shape" : ObjectShape.UNKNOWN, "is_bin" : True, "tf_to_centre" : (0,0,-0.04) , "marker_size": 0.04},
 }
