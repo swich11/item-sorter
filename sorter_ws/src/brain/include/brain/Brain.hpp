@@ -16,16 +16,22 @@ class Brain : public rclcpp::Node {
 public:
     Brain();
 
+    // Debugging function
+    void send_move_request(const geometry_msgs::msg::Pose &start_pose,
+                           const geometry_msgs::msg::Pose &goal_pose);
+
 private:
     void item_topic_callback(const interfaces::msg::LabelledPoseArray &msg);
 
     void goal_topic_callback(const interfaces::msg::LabelledPoseArray &msg);
 
     void send_move_request(const std::string &label);
-
+    
     void move_request_response(const std::string &label, 
-                               rclcpp::Client<interfaces::srv::Move>::SharedFuture future);
-
+        rclcpp::Client<interfaces::srv::Move>::SharedFuture future);
+        
+    // Function for debugging
+    void move_request_response(rclcpp::Client<interfaces::srv::Move>::SharedFuture future);
 
     std::map<std::string, geometry_msgs::msg::Pose> item_pose_map;
     std::map<std::string, geometry_msgs::msg::PoseStamped> goal_pose_map;
