@@ -76,7 +76,8 @@ def main():
     # Potentially changed to parameters later
     x = 1.2
     y = 0.0
-    z = 1.0Z
+    z = 1.0
+    roll = 0
     pitch = (45.0/180.0)*math.pi
     yaw = math.pi
 
