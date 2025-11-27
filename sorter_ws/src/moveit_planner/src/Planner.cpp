@@ -62,14 +62,9 @@ void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::R
         goal_pose.orientation = home_pose.orientation;
     }
     move_group_interface->stop();
-    move(res, target_pose);
-    RCLCPP_INFO(this->get_logger(), "At Start Pose.");
-    grasp();
-    target_pose.position = req->goal_pose.position;
-    move(res, target_pose);
+    move(res);
     RCLCPP_INFO(this->get_logger(), "At Goal Pose.");
-    // ungrasp();
-    asyncMoveHome();
+    // asyncMoveHome();
 }
 
 

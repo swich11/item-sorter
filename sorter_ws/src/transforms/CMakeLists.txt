@@ -13,14 +13,14 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(interfaces REQUIRED)
 
 
-add_executable(pose_lookup src/PoseLookup.cpp)
-target_compile_features(pose_lookup PUBLIC c_std_99 cxx_std_17)
-target_include_directories(pose_lookup PUBLIC
+add_executable(transform_node src/TransformNode.cpp)
+target_compile_features(transform_node PUBLIC c_std_99 cxx_std_17)
+target_include_directories(transform_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
 ament_target_dependencies(
-  pose_lookup
+  transform_node
   "rclcpp"
   "tf2"
   "tf2_ros"
@@ -29,7 +29,7 @@ ament_target_dependencies(
 )
 
 install(TARGETS 
-  pose_lookup
+  transform_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
