@@ -6,6 +6,7 @@ from launch_ros.substitutions import FindPackageShare
 
 def get_robot_description():
     joint_limit_params = PathJoinSubstitution(
+        # [FindPackageShare("moveit_planner"), "config", "joint_limits.yaml"]
         [FindPackageShare("ur_description"), "config", "ur5e", "joint_limits.yaml"]
     )
     kinematics_params = PathJoinSubstitution(
