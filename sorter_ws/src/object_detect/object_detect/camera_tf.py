@@ -10,7 +10,6 @@ from rclpy.node import Node
 
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
 
-
 def quaternion_from_euler(ai, aj, ak):
     ai /= 2.0
     aj /= 2.0
@@ -33,7 +32,6 @@ def quaternion_from_euler(ai, aj, ak):
     q[3] = cj*cc + sj*ss
 
     return q
-
 
 class StaticFramePublisher(Node):
     """
@@ -71,7 +69,6 @@ class StaticFramePublisher(Node):
 
         self.tf_static_broadcaster.sendTransform(t)
 
-
 def main():
     logger = rclpy.logging.get_logger('logger')
 
@@ -81,7 +78,8 @@ def main():
     y = 0.0
     z = 1.0
     roll = 0
-    pitch = (45.0/180.0)*math.pi
+    pitch = (45.0/180.0)*math.pi # or 0.5*math.pi
+    # pitch = 0.5*math.pi
     yaw = math.pi
 
     # pass parameters and initialize node

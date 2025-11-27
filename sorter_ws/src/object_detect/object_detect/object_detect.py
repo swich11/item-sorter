@@ -14,13 +14,14 @@ from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 from interfaces.msg import LabelledPoseArray, LabelledPose
 from visualization_msgs.msg import Marker, MarkerArray
+from rclpy.executors import MultiThreadedExecutor
 
 from enum import Enum
 
 # Constant Parameters 
 # TODO: make project variables
 MIN_BIN_AREA_THRESHOLD = 1500 # TO ADJUST
-IS_TEST = True  # Set to True to enable test mode
+IS_TEST = False  # Set to True to enable test mode
 MARKER_SIZE = 0.025  # Marker size in meters
 
 # Define object colours with their HSV ranges
@@ -128,6 +129,7 @@ class objectDetect(Node):
                 self.intrinsics.model = rs.distortion.kannala_brandt4
             self.intrinsics.coeffs = [i for i in cameraInfo.d]
             
+            # Set camera matrix and distortion coefficients for ArUco detection
             self.camera_matrix = np.array([
                 [self.intrinsics.fx,  0, self.intrinsics.ppx],
                 [0,  self.intrinsics.fy, self.intrinsics.ppy],
@@ -164,22 +166,11 @@ class objectDetect(Node):
     # TODO: Implement shape classification
     def classify_shape(self, contour):
         if self.intrinsics is None:
-            return ObjectShape.UNKNOWN, False, None
-        
-        # Approximate the contour to reduce number of points
-        # and clean up for visualization
-        peri = cv2.arcLength(contour, True)
-        approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
+            return ObjectShape.UNKNOWN, False
         
         shape = ObjectShape.UNKNOWN  # Default shape
-        
-        area = cv2.contourArea(contour)
-        is_bin = area > MIN_BIN_AREA_THRESHOLD
-        # zero_mask = np.zeros((self.intrinsics.height, self.intrinsics.width), dtype=np.uint8)
-        # mask = cv2.drawContours(zero_mask, [contour], -1, (0, 255, 0), -1)
-        # is_bin = self.is_bin_helper(contour, self.depth_image, mask)
-        
-        return shape, is_bin, approx
+        is_bin = cv2.contourArea(contour) > MIN_BIN_AREA_THRESHOLD
+        return shape, is_bin
     
     # Helper to determine if contour likely represents a bin
     def is_bin_helper(self, contour, depth_img, mask):
@@ -201,7 +192,8 @@ class objectDetect(Node):
         height_m = (h / self.intrinsics.fy) * Z
         
         return (width_m > 0.06 or height_m > 0.06)
-        
+    
+    # Create Rviz Marker message for visualization
     def make_marker(self, idx, colour_range, position, is_bin, shape=None, orientation=None):
         Marker_msg = Marker()
         Marker_msg.header.frame_id = "camera_frame"
@@ -230,6 +222,7 @@ class objectDetect(Node):
         Marker_msg.color.b = 255.0 if colour_range == ObjectColour.BLUE else 0.0
         return Marker_msg
     
+    # Create LabelledPose message for goals
     def make_goal(self, idx, colour_range, shape, position, orientation=None):
         goal = LabelledPose()
         goal.label = f"{colour_range.name}_{shape.name}_{idx}_goal"
@@ -246,6 +239,7 @@ class objectDetect(Node):
             goal.pose.orientation.z = 0.0
         return goal
     
+    # Create LabelledPose message for detected objects
     def make_object(self, idx, colour_range, shape, position, orientation=None):
         object = LabelledPose()
         object.label = f"{colour_range.name}_{shape.name}_{idx}"
@@ -262,6 +256,7 @@ class objectDetect(Node):
             object.pose.orientation.z = 0.0
         return object
     
+    # Get binary masks for each defined colour range
     def get_colour_masks(self):
         if self.cv_image is None:
             return None, None
@@ -289,6 +284,7 @@ class objectDetect(Node):
         
         return masks, complete_mask
     
+    # Get contours for each colour mask
     def get_colour_contours(self, masks):
         all_contours = []
         for colour, mask in masks.items():
@@ -299,8 +295,9 @@ class objectDetect(Node):
                     all_contours.append((colour, contour))
         return all_contours
     
+    # Find ArUco markers in the image or within a contour region
     def find_aruco(self, contour = None):
-        if self.colour_image is None or self.camera_matrix is None or self.dist_coeffs is None or self.intrinsics is None:
+        if self.cv_image is None or self.camera_matrix is None or self.dist_coeffs is None or self.intrinsics is None:
             return None, None, None, None
         
         x,y = 0,0
@@ -308,10 +305,10 @@ class objectDetect(Node):
         # make ROI around contour for aruco detection
         if contour is not None:
             x, y, w_box, h_box = cv2.boundingRect(contour)
-            roi = self.colour_image[max(y-tol,0):min(y+h_box+tol,self.colour_image.shape[0]), max(x-tol,0):min(x+w_box+tol,self.colour_image.shape[1])]
+            roi = self.cv_image[max(y-tol,0):min(y+h_box+tol,self.cv_image.shape[0]), max(x-tol,0):min(x+w_box+tol,self.cv_image.shape[1])]
             gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)         
         else:
-            gray = cv2.cvtColor(self.colour_image, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2GRAY)
     
         corners, ids, rejected = aruco.detectMarkers(gray, self.aruco_dict, parameters=self.aruco_params)
         
@@ -336,6 +333,7 @@ class objectDetect(Node):
         
         return ids, tvecs, rvecs, centers
     
+    # Get the size of the ArUco marker based on its ID
     def get_aruco_size(self, id):
         if id is None:
             return MARKER_SIZE
@@ -347,6 +345,7 @@ class objectDetect(Node):
         else:
             return MARKER_SIZE
     
+    # Get object information based on ArUco ID
     def get_aruco_info(self, id):
         if id is None:
             return ObjectShape.UNKNOWN, False, (0,0,0), MARKER_SIZE
@@ -357,16 +356,19 @@ class objectDetect(Node):
             return info["shape"], info["is_bin"], info["tf_to_centre"], info["marker_size"]
         else:
             return ObjectShape.UNKNOWN, False, (0,0,0), MARKER_SIZE
-        
+    
+    # Transform a point using rotation and translation
     def point_transform(self, point, orientation, transform):
         R, _ = cv2.Rodrigues(orientation)
         t = np.array(transform).reshape((3,1))
         transform = np.array(point).reshape((3,1))
         return R @ transform + t
     
+    # Calculate Euclidean distance between two Euler angle sets
     def euler_distance(self, euler1, euler2):
         return np.sqrt((euler1[0]-euler2[0])**2 + (euler1[1]-euler2[1])**2 + (euler1[2]-euler2[2])**2)
     
+    # Get contour center using image moments
     def get_contour_center(self, contour):
         moments = cv2.moments(contour)
         is_valid = moments['m00'] != 0
@@ -377,6 +379,7 @@ class objectDetect(Node):
         else:
             return 0, 0, is_valid
 
+    # Main object detection function
     def detect_objects(self):
         # Initialize msgs
         objects = LabelledPoseArray()
@@ -494,6 +497,8 @@ class objectDetect(Node):
 
                     # Draw the center on the original image for opencv visualization
                     cv2.circle(annotated, (det['img_position'][0], det['img_position'][1]), 5, (0, 0, 255), -1)
+                    cv2.putText(annotated, f"{det['id']}:", (det['img_position'][0] + 10, det['img_position'][1] - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                     
             else:
                 # No ArUco detected, classify shape normally    
@@ -501,7 +506,7 @@ class objectDetect(Node):
                 # No ArUco detected, classify shape normally    
                 if is_valid:
                     num_detected += 1        
-                    shape, is_bin, _ = self.classify_shape(contour)
+                    shape, is_bin = self.classify_shape(contour)
                     # Create and append marker for visualization
                     cv2.circle(annotated, (cX, cY), 5, (0, 255, 0), -1)
                     # cX,cY = 0,0
@@ -519,35 +524,6 @@ class objectDetect(Node):
 
                     # Draw the center on the original image for opencv visualization
                     cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
-
-        # Pre-Aruco detection code here if needed
-        # ---------------------------------------------------
-        # # Loop through each contour to classify and locate objects
-        # for colour_range, contour in contours:
-        #     moments = cv2.moments(contour)
-        #     if moments['m00'] != 0:
-        #         # Calculate the center of the object
-        #         cX = int(moments['m10'] / moments['m00'])
-        #         cY = int(moments['m01'] / moments['m00'])
-                
-        #         # Convert the pixel coordinates to 3D world coordinates
-        #         global_position = self.pixel_to_global([cX, cY])
-        #         if global_position is not None:
-        #             # Append the object to the list
-        #             num_detected += 1
-        #             shape, is_bin, _ = self.classify_shape(contour)
-        #             orientation = None # TODO: compute orientation for bin if needed using marker detection/point cloud
-        #             if is_bin:
-        #                 goals.poses.append(self.make_goal(num_detected, colour_range, shape, global_position, orientation))
-        #             else:
-        #                 objects.poses.append(self.make_object(num_detected, colour_range, shape, global_position))
-                        
-        #             # Create and append marker for Rviz visualization
-        #             Marker_msg = self.make_marker(num_detected, colour_range, global_position, is_bin, shape, orientation)
-        #             markers.markers.append(Marker_msg)
-
-        #             # Draw the center on the original image for opencv visualization
-        #             cv2.circle(annotated, (cX, cY), 5, (0, 0, 255), -1)
 
         return goals, objects, markers, annotated, complete_mask
 
@@ -631,17 +607,23 @@ class objectDetect(Node):
         self.goal_pub.publish(goals)
         self.marker_pub.publish(markers)
 
-        if annotated is not None and complete_mask is not None:
-            cv2.imshow('annotated', annotated)
-            cv2.imshow('complete_mask', complete_mask)
-            cv2.waitKey(1)
+        # if annotated is not None and complete_mask is not None:
+        #     cv2.imshow('annotated', annotated)
+        #     cv2.imshow('complete_mask', complete_mask)
+        #     cv2.waitKey(1)
         return
 
 def main():
     rclpy.init()
     object_detect = objectDetect()
-    rclpy.spin(object_detect)
-    rclpy.shutdown()
+    executor = MultiThreadedExecutor(num_threads=3)
+    executor.add_node(object_detect)
+    try:
+        executor.spin()
+    finally:
+        executor.shutdown()
+        object_detect.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
