@@ -29,7 +29,6 @@ public:
     // Debugging function
     void send_move_request(const geometry_msgs::msg::Pose &pose);
 
-private:
     void item_topic_callback(const interfaces::msg::LabelledPoseArray &msg);
 
     void goal_topic_callback(const interfaces::msg::LabelledPoseArray &msg);
@@ -43,8 +42,15 @@ private:
     inline void publish_item_pose(const std::string &label);
 
     std::string get_goal_label(const std::string &item_label);
-        
 
+    void transform_labelled_pose_array(const interfaces::msg::LabelledPoseArray &msg,
+                                       std::function<void(const interfaces::msg::LabelledPoseArray&)> f_update_map);
+
+    void update_item_map(const interfaces::msg::LabelledPoseArray &msg);
+
+    void update_goal_map(const interfaces::msg::LabelledPoseArray &msg);
+
+private:
     std::queue<std::string> item_queue;
     std::map<std::string, ItemPose> item_pose_map;
     std::map<std::string, geometry_msgs::msg::PoseStamped> goal_pose_map;

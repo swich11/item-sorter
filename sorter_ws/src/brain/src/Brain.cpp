@@ -22,6 +22,17 @@ Brain::Brain() : Node("brain") {
 
 
 void Brain::item_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
+    transform_labelled_pose_array(msg, std::bind(&Brain::update_item_map, this, _1));
+}
+
+
+void Brain::goal_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
+    transform_labelled_pose_array(msg, std::bind(&Brain::update_goal_map, this, _1));
+}
+
+
+void Brain::transform_labelled_pose_array(const interfaces::msg::LabelledPoseArray &msg,
+                                          std::function<void(const interfaces::msg::LabelledPoseArray&)> f_update_map) {
     auto req = std::make_shared<interfaces::srv::TransformLookupArray::Request>();
     req->poses.resize(msg.poses.size());
     std::transform(msg.poses.begin(), msg.poses.end(), req->poses.begin(), 
@@ -33,23 +44,36 @@ void Brain::item_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
         }
     );
     req->to_link = "tool0";
-    auto future = transform_client->async_send_request(req);
-    auto res = future.get();
-    if (!res->success) {
-        RCLCPP_INFO(this->get_logger(), "Failed to transform poses.");
-        return;
-    }
-    interfaces::msg::LabelledPoseArray tf_msg;
-    tf_msg.header = msg.header;
-    int len_poses = res->poses.size();
-    for (int i = 0; i < len_poses; i++) {
-        tf_msg.poses[i].pose = res->poses[i].pose;
-        tf_msg.poses[i].colour = msg.poses[i].colour;
-        tf_msg.poses[i].shape = msg.poses[i].shape;
-        tf_msg.poses[i].label = msg.poses[i].label;
-    }
+    RCLCPP_INFO(this->get_logger(), "sending transform request.");
 
-    for (auto item_pose : tf_msg.poses) {
+    transform_client->async_send_request(req, 
+        [this, f_update_map, &msg](rclcpp::Client<interfaces::srv::TransformLookupArray>::SharedFuture future) {
+            auto res = future.get();
+            if (!res->success) {
+                RCLCPP_INFO(this->get_logger(), "Transform lookup failed.");
+                return;
+            }
+            // Copy transformed poses to tf_msg
+            interfaces::msg::LabelledPoseArray tf_msg;
+            tf_msg.header = msg.header;
+            int len_poses = res->poses.size();
+            for (int i = 0; i < len_poses; i++) {
+                interfaces::msg::LabelledPose pose = msg.poses[i];
+                pose.pose = res->poses[i].pose;
+                tf_msg.poses.push_back(pose);
+                RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f", tf_msg.poses[i].pose.position.x,
+                                                                    tf_msg.poses[i].pose.position.y,
+                                                                    tf_msg.poses[i].pose.position.z);
+            }
+            // Do update step
+            f_update_map(tf_msg);
+        }
+    );
+}
+
+
+void Brain::update_item_map(const interfaces::msg::LabelledPoseArray &msg) {
+    for (auto item_pose : msg.poses) {
         // Update item pose in the map
         try {
             item_pose_map.at(item_pose.label).pose = item_pose.pose;
@@ -74,11 +98,7 @@ void Brain::item_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
 }
 
 
-void Brain::goal_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
-    // TODO: transform pose to base link
-
-
-
+void Brain::update_goal_map(const interfaces::msg::LabelledPoseArray &msg) {
     for (auto pose : msg.poses) {
         geometry_msgs::msg::PoseStamped pose_stamped;
         pose_stamped.header = msg.header;
@@ -171,6 +191,38 @@ void Brain::send_move_request(const geometry_msgs::msg::Pose &pose) {
 }
    
 
+int test_pose_callbacks(int argc, char* argv[]) {
+    rclcpp::init(argc, argv);
+    auto brain = std::make_shared<Brain>();
+
+    interfaces::msg::LabelledPose l_pose;
+    l_pose.colour = "orange";
+    l_pose.label = "red1";
+    l_pose.shape = "square";
+    l_pose.pose.position.x = 0.0;
+    l_pose.pose.position.x = 0.0;
+    l_pose.pose.position.x = 0.0;
+    l_pose.pose.orientation.w = 1.0;
+    l_pose.pose.orientation.x = 0.0;
+    l_pose.pose.orientation.y = 0.0;
+    l_pose.pose.orientation.z = 0.0;
+
+    interfaces::msg::LabelledPoseArray l_array;
+    l_array.header.frame_id = "camera_link";
+    // l_array.header.stamp = brain->get_clock()->now();
+
+    l_array.poses.push_back(l_pose);
+
+
+    brain->item_topic_callback(l_array);
+    brain->goal_topic_callback(l_array);
+
+    rclcpp::spin(brain);
+    rclcpp::shutdown();
+    return 0;
+}
+
+
 // Main functions
 int debug_main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
@@ -202,5 +254,5 @@ int release_main(int argc, char* argv[]) {
 }
 
 int main(int argc, char* argv[]) {
-    return debug_main(argc, argv);
+    return test_pose_callbacks(argc, argv);
 }
