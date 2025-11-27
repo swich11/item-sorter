@@ -22,7 +22,6 @@ Brain::Brain() : Node("brain") {
 
 
 void Brain::item_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
-    // TODO: transform the pose to base link
     auto req = std::make_shared<interfaces::srv::TransformLookupArray::Request>();
     req->poses.resize(msg.poses.size());
     std::transform(msg.poses.begin(), msg.poses.end(), req->poses.begin(), 
@@ -33,15 +32,24 @@ void Brain::item_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
             return pose;
         }
     );
-    // req->to_link = "tool0";
-    // transform_client->async_send_request(req,
-    //     [this, ](rclcpp::Client<interfaces::srv::TransformLookupArray>::SharedFuture future)
+    req->to_link = "tool0";
+    auto future = transform_client->async_send_request(req);
+    auto res = future.get();
+    if (!res->success) {
+        RCLCPP_INFO(this->get_logger(), "Failed to transform poses.");
+        return;
+    }
+    interfaces::msg::LabelledPoseArray tf_msg;
+    tf_msg.header = msg.header;
+    int len_poses = res->poses.size();
+    for (int i = 0; i < len_poses; i++) {
+        tf_msg.poses[i].pose = res->poses[i].pose;
+        tf_msg.poses[i].colour = msg.poses[i].colour;
+        tf_msg.poses[i].shape = msg.poses[i].shape;
+        tf_msg.poses[i].label = msg.poses[i].label;
+    }
 
-
-
-
-
-    for (auto item_pose : msg.poses) {
+    for (auto item_pose : tf_msg.poses) {
         // Update item pose in the map
         try {
             item_pose_map.at(item_pose.label).pose = item_pose.pose;
