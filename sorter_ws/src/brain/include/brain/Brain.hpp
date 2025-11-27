@@ -3,6 +3,7 @@
 #include <vector>
 #include <queue>
 #include <chrono>
+#include <algorithm>
 
 
 #include "rclcpp/rclcpp.hpp"
@@ -11,7 +12,7 @@
 #include "interfaces/msg/labelled_pose_array.hpp"
 #include "interfaces/msg/labelled_pose.hpp"
 #include "interfaces/srv/move.hpp"
-#include "interfaces/srv/transform_lookup.hpp"
+#include "interfaces/srv/transform_lookup_array.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 
 
@@ -50,7 +51,7 @@ private:
 
     rclcpp::TimerBase::SharedPtr timer;
     rclcpp::Client<interfaces::srv::Move>::SharedPtr move_client;
-    rclcpp::Client<interfaces::srv::TransformLookup>::SharedPtr transform_client;
+    rclcpp::Client<interfaces::srv::TransformLookupArray>::SharedPtr transform_client;
     rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr pose_update_publisher;
     rclcpp::Subscription<interfaces::msg::LabelledPoseArray>::SharedPtr item_pose_subscription;
     rclcpp::Subscription<interfaces::msg::LabelledPoseArray>::SharedPtr goal_pose_subscription;

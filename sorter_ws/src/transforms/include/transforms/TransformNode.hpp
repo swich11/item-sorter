@@ -12,6 +12,7 @@
 #include <chrono>
 
 
+#include "interfaces/srv/transform_lookup_array.hpp"
 #include "interfaces/srv/transform_lookup.hpp"
 
 
@@ -25,8 +26,12 @@ public:
   void lookup_service_callback(const std::shared_ptr<interfaces::srv::TransformLookup::Request> req,
                                const std::shared_ptr<interfaces::srv::TransformLookup::Response> res);
 
+  void lookup_array_service_callback(const std::shared_ptr<interfaces::srv::TransformLookupArray::Request> req,
+                                     const std::shared_ptr<interfaces::srv::TransformLookupArray::Response> res);
+
 private:
     rclcpp::Service<interfaces::srv::TransformLookup>::SharedPtr lookup_service;
+    rclcpp::Service<interfaces::srv::TransformLookupArray>::SharedPtr lookup_array_service;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_static_broadcaster_;

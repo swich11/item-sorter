@@ -7,8 +7,11 @@ using namespace std::chrono_literals;
 
 TransformNode::TransformNode() : Node("transform_node") {
     lookup_service = this->create_service<interfaces::srv::TransformLookup>(
-        "/pose_lookup", std::bind(&TransformNode::lookup_service_callback, this, _1, _2));
-
+        "/pose_lookup", std::bind(&TransformNode::lookup_service_callback, this, _1, _2)
+    );
+    lookup_array_service = this->create_service<interfaces::srv::TransformLookupArray>(
+        "/pose_lookup_array", std::bind(&TransformNode::lookup_array_service_callback, this, _1, _2)
+    );
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
     tf_static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
@@ -56,6 +59,31 @@ void TransformNode::lookup_service_callback(
         res->success = false;
     }
 }
+
+
+void TransformNode::lookup_array_service_callback(const std::shared_ptr<interfaces::srv::TransformLookupArray::Request> req,
+                                                  const std::shared_ptr<interfaces::srv::TransformLookupArray::Response> res) {
+    RCLCPP_INFO(this->get_logger(), "Received lookup array request.");
+
+    try {
+        auto transform = tf_buffer_->lookupTransform(req->to_link, 
+                                                    req->poses[0].header.frame_id, 
+                                                    tf2::TimePointZero,
+                                                    500ms);
+        // Apply transform to each pose
+        geometry_msgs::msg::PoseStamped output_pose;
+        for (auto pose : req->poses) {
+            tf2::doTransform(pose, output_pose, transform);
+            res->poses.push_back(output_pose);
+        }
+        RCLCPP_INFO(this->get_logger(), "Transforms successful.");
+        res->success = true;
+    } catch (tf2::TransformException &e) {
+        RCLCPP_ERROR(this->get_logger(), "Could not lookup transform %s", e.what());
+        res->success = false;
+    }
+}
+
 
 
 int test(int argc, char* argv[]) {

@@ -6,7 +6,7 @@ using namespace std::chrono_literals;
 
 Brain::Brain() : Node("brain") {
     move_client = this->create_client<interfaces::srv::Move>("/moveit_planner/move");
-    transform_client = this->create_client<interfaces::srv::TransformLookup>("/pose_lookup");
+    transform_client = this->create_client<interfaces::srv::TransformLookupArray>("/pose_lookup_array");
     item_pose_subscription = this->create_subscription<interfaces::msg::LabelledPoseArray>(
         "/camera/objects/labelled_pose_array", 10, std::bind(&Brain::item_topic_callback, this, _1)
     );
@@ -23,8 +23,21 @@ Brain::Brain() : Node("brain") {
 
 void Brain::item_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
     // TODO: transform the pose to base link
-    auto req = std::make_shared<interfaces::srv::TransformLookup::Request>();
-    req->pose = msg.pos
+    auto req = std::make_shared<interfaces::srv::TransformLookupArray::Request>();
+    req->poses.resize(msg.poses.size());
+    std::transform(msg.poses.begin(), msg.poses.end(), req->poses.begin(), 
+        [&msg](const interfaces::msg::LabelledPose &l_pose) {
+            geometry_msgs::msg::PoseStamped pose;
+            pose.header = msg.header;
+            pose.pose = l_pose.pose;
+            return pose;
+        }
+    );
+    // req->to_link = "tool0";
+    // transform_client->async_send_request(req,
+    //     [this, ](rclcpp::Client<interfaces::srv::TransformLookupArray>::SharedFuture future)
+
+
 
 
 
