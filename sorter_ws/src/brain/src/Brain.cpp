@@ -254,5 +254,5 @@ int release_main(int argc, char* argv[]) {
 }
 
 int main(int argc, char* argv[]) {
-    return test_pose_callbacks(argc, argv);
+    return release_main(argc, argv);
 }
