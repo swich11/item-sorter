@@ -94,6 +94,8 @@ class objectDetect(Node):
         self.object_pub = self.create_publisher(LabelledPoseArray, "/camera/objects/labelled_pose_array", 10)
         self.goal_pub = self.create_publisher(LabelledPoseArray, "/camera/goals/labelled_pose_array", 10) 
         self.marker_pub = self.create_publisher(MarkerArray, "/camera/markers", 10)
+        self.annotated_pub = self.create_publisher(Image, "/camera/annotated_image", 10)
+        self.mask_pub = self.create_publisher(Image, "/camera/complete_mask", 10)
         
         # Initialize Aruco parameters
         self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_6X6_50)
@@ -606,6 +608,8 @@ class objectDetect(Node):
         self.object_pub.publish(objects)
         self.goal_pub.publish(goals)
         self.marker_pub.publish(markers)
+        self.annotated_pub.publish(self.cv_bridge.cv2_to_imgmsg(annotated, encoding="bgr8"))
+        self.mask_pub.publish(self.cv_bridge.cv2_to_imgmsg(complete_mask, encoding="mono8"))
 
         # if annotated is not None and complete_mask is not None:
         #     cv2.imshow('annotated', annotated)
