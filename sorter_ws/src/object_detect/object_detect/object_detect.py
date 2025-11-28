@@ -159,9 +159,29 @@ class objectDetect(Node):
     # TODO : Check axis
     def pixel_to_global(self, pixel_pt, depth_offset=0.0):
         cX, cY = pixel_pt
-        if self.depth_image is not None and self.intrinsics is not None and cX < self.intrinsics.width and cY < self.intrinsics.height:
-            [z,y,x] = rs.rs2_deproject_pixel_to_point(self.intrinsics, (cX, cY), self.depth_image[cY,cX]*0.001 + depth_offset)
+        avg_depth = self.average_depth(pixel_pt) # self.depth_image[cY, cX] * 0.001
+        if self.depth_image is not None and self.intrinsics is not None and cX < self.intrinsics.width and cY < self.intrinsics.height and avg_depth is not None:
+            [z,y,x] = rs.rs2_deproject_pixel_to_point(self.intrinsics, (cX, cY), avg_depth + depth_offset)
             return [x, y, z]
+        else:
+            return None
+        
+    def average_depth(self, pixel_pt):
+        cX, cY = pixel_pt
+        if self.depth_image is not None and self.intrinsics is not None and cX < self.intrinsics.width and cY < self.intrinsics.height:
+            # Get a 10x10 region around the pixel
+            radius = 5
+            x_start = max(cX - radius, 0)
+            x_end = min(cX + radius + 1, self.intrinsics.width)
+            y_start = max(cY - radius, 0)
+            y_end = min(cY + radius + 1, self.intrinsics.height)
+            region = self.depth_image[y_start:y_end, x_start:x_end]
+            # Filter out zero values (invalid depth)
+            valid_depths = region[region > 0]
+            if len(valid_depths) == 0:
+                return None
+            avg_depth = np.mean(valid_depths) * 0.001  # convert mm to m
+            return avg_depth
         else:
             return None
     
