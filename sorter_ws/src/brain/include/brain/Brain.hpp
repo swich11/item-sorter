@@ -4,6 +4,7 @@
 #include <queue>
 #include <chrono>
 #include <algorithm>
+#include <thread>
 
 
 #include "rclcpp/rclcpp.hpp"
@@ -16,6 +17,9 @@
 #include "geometry_msgs/msg/pose_stamped.hpp"
 
 
+#include "brain/Semaphore.hpp"
+
+
 struct ItemPose {
     geometry_msgs::msg::Pose pose;
     bool in_queue;
@@ -25,6 +29,8 @@ struct ItemPose {
 class Brain : public rclcpp::Node {
 public:
     Brain();
+
+    ~Brain();
 
     // Debugging function
     void send_move_request(const geometry_msgs::msg::Pose &pose);
@@ -50,8 +56,13 @@ public:
 
     void update_goal_map(const interfaces::msg::LabelledPoseArray &msg);
 
+    void spin_wait_for_items();
+
 private:
+    Semaphore item_queue_sem{0};
     std::queue<std::string> item_queue;
+    std::thread move_call_thread;
+    bool running;
     std::map<std::string, ItemPose> item_pose_map;
     std::map<std::string, geometry_msgs::msg::PoseStamped> goal_pose_map;
 

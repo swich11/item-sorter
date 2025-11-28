@@ -1,5 +1,6 @@
 #include "brain/Brain.hpp"
 
+
 using std::placeholders::_1;
 using namespace std::chrono_literals;
 
@@ -16,8 +17,20 @@ Brain::Brain() : Node("brain") {
     pose_update_publisher = this->create_publisher<geometry_msgs::msg::Pose>(
         "/brain/move/pose", 10
     );
+    move_call_thread = std::thread(&Brain::spin_wait_for_items, this);
+    running = true;
 
     RCLCPP_INFO(this->get_logger(), "Brain Node Started.");
+}
+
+
+Brain::~Brain() {
+    if (move_call_thread.joinable()) {
+        this->running = false;
+        item_queue_sem.release();
+        move_call_thread.join();
+        RCLCPP_INFO(this->get_logger(), "Closing item handler thread.");
+    }
 }
 
 
@@ -65,6 +78,7 @@ void Brain::transform_labelled_pose_array(const interfaces::msg::LabelledPoseArr
                                                                     tf_msg.poses[i].pose.position.y,
                                                                     tf_msg.poses[i].pose.position.z);
             }
+            // TODO: filter poses that are not in robot range.
             // Do update step
             f_update_map(tf_msg);
         }
@@ -84,13 +98,14 @@ void Brain::update_item_map(const interfaces::msg::LabelledPoseArray &msg) {
         }
         // Queue item to be moved to goal
         try {
+            // check if goal is found and recent, queue when it is and release semaphore.
             auto& goal_pose = goal_pose_map.at(get_goal_label(item_pose.label));
-            // only queue once goal is found and is recent
             if (!item_pose_map[item_pose.label].in_queue
                     && rclcpp::Time(msg.header.stamp) - rclcpp::Time(goal_pose.header.stamp) 
                         < rclcpp::Duration(1, 0)) {
                 item_queue.push(item_pose.label);
                 item_pose_map[item_pose.label].in_queue = true;
+                item_queue_sem.release(); // Release semaphore for movement goal
             }
         }
         catch (std::out_of_range const&) {}
@@ -104,6 +119,21 @@ void Brain::update_goal_map(const interfaces::msg::LabelledPoseArray &msg) {
         pose_stamped.header = msg.header;
         pose_stamped.pose = pose.pose;
         goal_pose_map[pose.label] = pose_stamped;
+    }
+}
+
+
+// Waits for items to be added to the queue and sends the move request once they are added.
+void Brain::spin_wait_for_items() {
+    while (true) {
+        item_queue_sem.acquire();
+        if (!this->running) {
+            break;
+        }
+        RCLCPP_INFO(this->get_logger(), "Waiting for item semaphore.");
+        auto item_label = item_queue.front();
+        send_move_request(item_label);
+        item_queue.pop();
     }
 }
 
@@ -127,12 +157,17 @@ void Brain::send_move_request(const std::string &item_label) {
                 move_client->wait_for_service(100ms); // Wait for service to not pre-empt service call
                 move_client->async_send_request(req,
                     [this](rclcpp::Client<interfaces::srv::Move>::SharedFuture future) {
-                        this->move_request_response(future);
+                        if (this->move_request_response(future)) {
+                            // TODO: add error handling here.
+                        }
+
                         // add drop item request on goal move failure?
                     }
                 );
                 item_pose_map.erase(item_label);
             } else {
+                // TODO: more error handling.
+
                 // Allow item to be queued again on failure
                 item_pose_map[item_label].in_queue = false;
             }
@@ -248,7 +283,13 @@ int debug_main(int argc, char* argv[]) {
 
 int release_main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<Brain>());
+    rclcpp::executors::MultiThreadedExecutor executor(
+        rclcpp::ExecutorOptions(),
+        2
+    );
+    auto brain = std::make_shared<Brain>();
+    executor.add_node(brain);
+    executor.spin();
     rclcpp::shutdown();
     return 0;
 }
