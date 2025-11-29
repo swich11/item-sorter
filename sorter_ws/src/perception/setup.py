@@ -24,7 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'fruit_detector = perception.FruitDetector:main'
+            'item-detector = perception.ItemDetector:main'
         ],
     },
 )

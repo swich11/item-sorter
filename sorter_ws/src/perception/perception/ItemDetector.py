@@ -1,26 +1,23 @@
+from ultralytics.engine.results import Results
 import cv2
 import numpy as np
 
 from ultralytics import YOLO
 
 import rclpy
-from rclpy.service import Service
 from rclpy.node import Node
 from cv_bridge import CvBridge
 
 from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import Point
-
-from std_srvs.srv import SetBool
 
 
 # Since I don't have access to a depth camera, positions are output as x, and y values
 # in pixel coordinates of the centroid of the object
 # if the depth camera was there, a relative position could instead be produced using
 # the depth image of the camera
-class FruitDetector(Node):
+class ItemDetector(Node):
     def __init__(self):
-        super().__init__('fruit_detector')
+        super().__init__('item_detector')
         self._bridge = CvBridge()
         self._subscription = self.create_subscription(Image,
                                                       "/camera/camera/color/image_raw", 
@@ -28,7 +25,7 @@ class FruitDetector(Node):
                                                       10)
         self._image_publisher = self.create_publisher(Image, "/perception/detection/image", 10)
         self.camera_info_sub = self.create_subscription(CameraInfo, "/camera/camera/color/camera_info", self.info_callback, 10)
-        self.model = YOLO("/home/julian/MTRN4231/labs/lab04/install/lab4_perception_example/share/lab4_perception_example/item-sorter.pt")
+        self.model = YOLO("/home/julian/MTRN4231/item-sorter/sorter_ws/src/perception/resource/item-sorter.pt")
 
         self.fx = 400.0
         self.fy = 400.0
@@ -50,18 +47,16 @@ class FruitDetector(Node):
         
 
     def image_callback(self, msg: Image) -> None:
-        if not self.publish_started:
-            return None
-        img = self._bridge.imgmsg_to_cv2(msg)
-        results = self.model(img, verbose=False)
+        img = self._bridge.imgmsg_to_cv2(msg, "bgr8")
+        results: Results = self.model(img, verbose=False)
         annotated_img = results[0].plot(show=False)
-        annotated_img_msg = self._bridge.cv2_to_imgmsg(annotated_img, "bgr8")
+        annotated_img_msg = self._bridge.cv2_to_imgmsg(annotated_img)
         annotated_img_msg.header.frame_id = "/camera_link" # fix that probs
         annotated_img_msg.header.stamp = self.get_clock().now().to_msg()
         self._image_publisher.publish(annotated_img_msg)
 
         for result in results:
-            print(result)
+            print(result.boxes)
             # masks = result.masks
             # if masks is not None:
             #     for i, mask in enumerate(masks):
@@ -97,7 +92,7 @@ class FruitDetector(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = FruitDetector()
+    node = ItemDetector()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
