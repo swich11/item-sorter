@@ -1,40 +1,59 @@
 import os
-
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch_ros.actions import Node
-import xacro
+from launch.actions import TimerAction, IncludeLaunchDescription
+from launch.substitutions import PathJoinSubstitution
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch_ros.substitutions import FindPackageShare
+
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+
+
+# launch arguments, change manually before launching
+has_camera = 'false'
+real_robot = 'false'
+
+def get_realsense_launch():
+    realsense_launch_path = os.path.join(
+        get_package_share_directory('realsense2_camera'), 'launch', 'rs_launch.py'
+    )
+
+    return IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(realsense_launch_path),
+        launch_arguments={
+            'enable_rgbd': 'true',
+            'enable_sync': 'true',
+            'align_depth.enable': 'true',
+            'enable_color': 'true',
+            'enable_depth': 'true',
+            'pointcloud.enable': 'true',
+            'color_width': '640',
+            'color_height': '480',
+            'color_fps': '5',
+            'depth_width': '640',
+            'depth_height': '480',
+            'depth_fps': '5',
+            'pointcloud_texture_stream': 'RS2_STREAM_COLOR',
+            'pointcloud_texture_index': '0',
+            'filters': 'pointcloud',
+            'allow_no_texture_points': 'false'
+        }.items()
+    )
+
+def get_rviz_launch():
+    rviz_config_path = os.path.join(
+        get_package_share_directory('sys_viz'),
+        'rviz',
+        'display.rviz'
+    )
+
+    return IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(rviz_config_path)
+    )
 
 
 
 def generate_launch_description():
-
-    package_name = 'robot_description'
-    xacro_path = 'urdf/ur_with_end_effector.xacro'
-    rviz_path = 'rviz/display.rviz'
-
-    xacro_file = os.path.join(get_package_share_directory(package_name), xacro_path)
-    xacro_raw_description = xacro.process_file(xacro_file).toxml()
-
-    rviz_file = os.path.join(get_package_share_directory(package_name), rviz_path)
-
-    return LaunchDescription([
-        Node(
-            name='robot_state_publisher',
-            package='robot_state_publisher',
-            executable='robot_state_publisher',
-            output='screen',
-            parameters=[{'robot_description': xacro_raw_description}]),
-        Node(
-            name='joint_state_publisher_gui',
-            package='joint_state_publisher_gui',
-            executable='joint_state_publisher_gui',
-            output='screen',
-            parameters=[{'robot_description': xacro_raw_description}]),
-        Node(
-            name='rviz2',
-            package='rviz2',
-            executable='rviz2',
-            output='screen',
-            arguments=['-d', rviz_file]),
-    ])
+    launch_description = []
+    return LaunchDescription(launch_description)
