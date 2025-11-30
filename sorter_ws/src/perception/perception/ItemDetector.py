@@ -1,5 +1,7 @@
+from enum import Enum
+
+import cv2
 import numpy as np
-import pyrealsense2 as rs
 
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
@@ -14,10 +16,46 @@ from geometry_msgs.msg import Point
 from interfaces.msg import LabelledPoseArray, LabelledPose # type: ignore
 
 
-# Since I don't have access to a depth camera, positions are output as x, and y values
-# in pixel coordinates of the centroid of the object
-# if the depth camera was there, a relative position could instead be produced using
-# the depth image of the camera
+# these were widened because masks will only be taken for a bounding box
+class ColourMasks(Enum):
+    RED_LOW = ((0, 60, 0), (10, 255, 255))
+    RED_HIGH = ((170, 60, 0), (180, 255, 255))
+    GREEN = ((35, 60, 50), (95, 255, 255))
+    BLUE = ((95, 150, 0), (115, 255, 255))
+
+    @property
+    def lower(self):
+        return np.array(self.value[0], dtype=np.uint8)
+    
+    @property
+    def upper(self):
+        return np.array(self.value[1], dtype=np.uint8)
+    
+
+class ObjectColours(Enum):
+    BLUE = 0
+    GREEN = 1
+    RED = 2
+
+
+colour_dict = {
+    "RedHexagon": ObjectColours.RED,
+    "RedSquare": ObjectColours.RED,
+    "RedCircle": ObjectColours.RED,
+    "CircleBucket": ObjectColours.RED,
+
+    "GreenHexagon": ObjectColours.GREEN,
+    "GreenSquare": ObjectColours.GREEN,
+    "GreenCircle": ObjectColours.GREEN,
+    "HexagonBucket": ObjectColours.GREEN,
+
+    "BlueHexagon": ObjectColours.BLUE,
+    "BlueSquare": ObjectColours.BLUE,
+    "BlueCircle": ObjectColours.BLUE,
+    "SquareBucket": ObjectColours.BLUE,
+}
+
+
 class ItemDetector(Node):
     def __init__(self):
         super().__init__('item_detector')
@@ -34,7 +72,10 @@ class ItemDetector(Node):
         self._image_publisher = self.create_publisher(Image, "/perception/detection/image", 10)
         self.model = YOLO("/home/julian/MTRN4231/item-sorter/sorter_ws/src/perception/resource/item-sorter.pt")
 
-        self.intrinsics = rs.intrinsics() # type: ignore
+        self.fx = 150.0
+        self.fy = 150.0
+        self.ppx = 200
+        self.ppy = 200
         self.depth_image = None
         self.got_intrinsics = False
 
@@ -45,22 +86,10 @@ class ItemDetector(Node):
         try:
             # Grab the intrinsics
             self.get_logger().info(f"Got camera instrinics: {msg.k}")
-            self.intrinsics.width = msg.width
-            self.intrinsics.height = msg.height
-            self.intrinsics.ppx = msg.k[2]
-            self.intrinsics.ppy = msg.k[5]
-            self.intrinsics.fx = msg.k[0]
-            self.intrinsics.fy = msg.k[4]
-            if msg.distortion_model == 'plumb_bob':
-                self.intrinsics.model = rs.distortion.brown_conrady # type: ignore
-            elif msg.distortion_model == 'equidistant':
-                self.intrinsics.model = rs.distortion.kannala_brandt4 # type: ignore
-            self.camera_matrix = np.array([
-                [self.intrinsics.fx, 0, self.intrinsics.ppx],
-                [0, self.intrinsics.fy, self.intrinsics.ppy],
-                [0, 0, 1],
-            ])
-            self.dist_coeffs = np.array(self.intrinsics.coeffs)
+            self.fx = msg.k[0]
+            self.fy = msg.k[4]
+            self.ppx = msg.k[2]
+            self.ppy = msg.k[5]
         except CvBridgeError as e:
             self.get_logger().error(f"{e}")
             return
@@ -87,7 +116,8 @@ class ItemDetector(Node):
         if (self.depth_image is None):
             return
 
-
+        # HSV image, we mask for segmentation
+        hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         for result in results:
             boxes = result.boxes
             if boxes is not None:
@@ -95,19 +125,36 @@ class ItemDetector(Node):
                     if boxes.conf[i] > 0.9:
                         l_pose = LabelledPose()
                         l_pose.label = result.names[int(cls)]
-                        cX = int(boxes.xywh[i][0])
-                        cY = int(boxes.xywh[i][1])
-                        # x, y, z position in camera frame
-                        x, y, z = rs.rs2_deproject_pixel_to_point(self.intrinsics, (cX, cY), self.depth_image[cY,cX]*0.001) # type: ignore
-                        l_pose.pose.position.x = x
-                        l_pose.pose.position.y = y
-                        l_pose.pose.position.z = z
+                        # crop image to bounding box area
+                        x1, y1, x2, y2 = map(int, boxes.xyxy[i][:4])
+                        bounding_img = hsv_img[y1:y2, x1:x2]
+                        bounding_depth = self.depth_image[y1:y2, x1:x2]
+                        # do masking to segment the image
+                        match(colour_dict[l_pose.label]):
+                            case ObjectColours.RED:
+                                mask_low = cv2.inRange(bounding_img, ColourMasks.RED_LOW.lower, ColourMasks.RED_HIGH.upper)
+                                mask_high = cv2.inRange(bounding_img, ColourMasks.RED_HIGH.lower, ColourMasks.RED_HIGH.upper)
+                                mask = cv2.bitwise_or(mask_low, mask_high)
+                            case ObjectColours.GREEN:
+                                mask = cv2.inRange(bounding_img, ColourMasks.GREEN.lower, ColourMasks.GREEN.upper)
+                            case ObjectColours.BLUE:
+                                mask = cv2.inRange(bounding_img, ColourMasks.BLUE.lower, ColourMasks.BLUE.upper)
+                        # average pixel positions in the mask + add to labelled pose
+                        vs, us = np.where(mask)
+                        Z = bounding_depth[vs, us]
+                        l_pose.pose.position.x = np.average((x1 + us - self.ppx) * Z / self.fx) / 1000.0
+                        l_pose.pose.position.y = np.average((y1 + vs - self.ppy) * Z / self.fy) / 1000.0
+                        l_pose.pose.position.z = np.average(Z) / 1000.0
                         l_pose.pose.orientation.w = 1.0
                         l_pose.pose.orientation.x = 0.0
                         l_pose.pose.orientation.y = 0.0
                         l_pose.pose.orientation.z = 0.0
                         l_pose_array.poses.append(l_pose)
-        self.get_logger().info("Publishing labelled pose array.")
+                        
+                        # TODO: do marker array
+
+
+
         self.object_pub.publish(l_pose_array) # just publish all objects in one array, this can be filtered by the brain
 
 
