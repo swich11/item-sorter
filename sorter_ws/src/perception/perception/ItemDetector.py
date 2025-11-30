@@ -12,7 +12,6 @@ from rclpy.node import Node
 from cv_bridge import CvBridge, CvBridgeError
 
 from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import Point
 from interfaces.msg import LabelledPoseArray, LabelledPose # type: ignore
 
 
@@ -150,11 +149,6 @@ class ItemDetector(Node):
                         l_pose.pose.orientation.y = 0.0
                         l_pose.pose.orientation.z = 0.0
                         l_pose_array.poses.append(l_pose)
-                        
-                        # TODO: do marker array
-
-
-
         self.object_pub.publish(l_pose_array) # just publish all objects in one array, this can be filtered by the brain
 
 
