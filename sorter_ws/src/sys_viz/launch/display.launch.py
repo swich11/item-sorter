@@ -9,7 +9,7 @@ import xacro
 
 def generate_launch_description():
 
-    package_name = 'sys_viz'
+    package_name = 'robot_description'
     xacro_path = 'urdf/ur_with_end_effector.xacro'
     rviz_path = 'rviz/display.rviz'
 
