@@ -6,6 +6,9 @@ using std::placeholders::_2;
 using namespace std::chrono_literals;
 
 
+// TODO: make grasp handle case where new poses aren't being streamed correctly.
+
+
 
 Planner::Planner() : Node("planner") {
     move_group_interface = std::make_unique<moveit::planning_interface::MoveGroupInterface>(std::shared_ptr<rclcpp::Node>(this), "ur_manipulator");
