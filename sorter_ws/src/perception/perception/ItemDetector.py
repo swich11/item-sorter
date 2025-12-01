@@ -122,7 +122,7 @@ class ItemDetector(Node):
             boxes = result.boxes
             if boxes is not None:
                 for i, cls in enumerate(boxes.cls):
-                    if boxes.conf[i] > 0.9:
+                    if boxes.conf[i] > 0.8:
                         l_pose = LabelledPose()
                         l_pose.label = result.names[int(cls)]
                         # crop image to bounding box area

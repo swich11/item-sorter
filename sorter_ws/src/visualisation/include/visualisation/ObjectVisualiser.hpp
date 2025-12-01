@@ -68,5 +68,6 @@ private:
     rclcpp::Subscription<interfaces::msg::LabelledPoseArray>::SharedPtr object_pose_sub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub;
     std::map<std::string, ObjectMarkerInfo> marker_label_map;
+    visualization_msgs::msg::MarkerArray last_marker_array;
 
 };

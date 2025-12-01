@@ -30,13 +30,13 @@ ObjectVisualiser::ObjectVisualiser() : Node("visualiser") {
         {"SquareBucket", ObjectMarkerInfo{ObjectID::SquareBucket, Marker::CYLINDER, 0.0, 0.0, 255.0, 0.1, 0.1, 0.1, false}},
         {"HexagonBucket", ObjectMarkerInfo{ObjectID::HexagonBucket, Marker::CYLINDER, 0.0, 255.0, 0.0, 0.1, 0.1, 0.1, false}},
     };
-    all_labels_detected = std::set<std::string>();
+    // all_labels_detected = std::set<std::string>();
 }
 
 
 void ObjectVisualiser::object_array_callback(const interfaces::msg::LabelledPoseArray &msg) {
     auto marker_array = visualization_msgs::msg::MarkerArray();
-    labels_detected = std::set<std::string>();
+    auto labels_detected = std::set<int>();
     try {
         for (auto &l_pose : msg.poses) {
             auto marker = visualization_msgs::msg::Marker();
@@ -45,10 +45,10 @@ void ObjectVisualiser::object_array_callback(const interfaces::msg::LabelledPose
             marker.ns = "object_marker";
             marker.header = msg.header;
 
-            all_labels_detected.insert(l_pose.label);
-            labels_detected.insert(l_pose.label);
+            // all_labels_detected.insert(l_pose.label);
             auto object_info = marker_label_map.at(l_pose.label);
             marker.id = object_info.id;
+            labels_detected.insert(object_info.id);
             marker.type = object_info.type;
             marker.scale = object_info.scale;
             marker.color = object_info.color;
@@ -57,7 +57,7 @@ void ObjectVisualiser::object_array_callback(const interfaces::msg::LabelledPose
         // Handle deletion of old markers
         // find which markers were present last time but not this time
         for (auto &old_marker : last_marker_array.markers) {
-            if (labels_detected.find(old_marker.ns) == labels_detected.end()) {
+            if (labels_detected.find(old_marker.id) == labels_detected.end()) {
                 auto delete_marker = visualization_msgs::msg::Marker();
                 delete_marker.action = visualization_msgs::msg::Marker::DELETE;
                 delete_marker.header = old_marker.header;
