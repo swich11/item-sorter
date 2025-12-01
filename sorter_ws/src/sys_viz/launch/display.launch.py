@@ -19,8 +19,7 @@ def get_realsense_launch():
         launch_arguments={
             'align_depth.enable': 'true',
             'enable_color': 'true',
-            'enable_depth': 'true',
-            'pointcloud.enable': 'true',
+            'enable_depth': 'true'
         }.items()
     )
 
@@ -61,7 +60,7 @@ def get_moveit_launch():
                     os.path.join(
                         get_package_share_directory('moveit_config'),
                         'launch;,'
-                        'ur_moveit_octomap.launch.py'
+                        'ur_moveit.launch.py'
                     )
                 ),
                 launch_arguments={
@@ -75,7 +74,7 @@ def get_moveit_launch():
         ]
     )
 
-def get_moveit_planer_launch():
+def get_moveit_planner_launch():
     moveit_planner_launch_path = os.path.join(
         get_package_share_directory('moveit_planner'),
         'launch',
@@ -86,13 +85,14 @@ def get_moveit_planer_launch():
         PythonLaunchDescriptionSource(moveit_planner_launch_path)
     )
 
-
+#def get_auxiliary_launch():
+    
 
 def generate_launch_description():
     launch_description = [
         get_realsense_launch(),
         get_ur_driver_launch(),
         get_moveit_launch(),
-        get_moveit_planer_launch(),
+        get_moveit_planner_launch(),
     ]
     return LaunchDescription(launch_description)

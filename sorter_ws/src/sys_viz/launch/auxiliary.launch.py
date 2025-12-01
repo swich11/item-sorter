@@ -12,16 +12,16 @@ def generate_launch_description():
         package="brain",
         executable="brain",
         name="brain"
-    ),
+    )
     arduino_bridge_node = Node(
         package="teensy_pkg",
         executable="util_arduino_node",
         name="util_arduino_node",
-    ),
+    )
     transform_node = Node(
         package="transforms",
-        executable="PoseLookup",
-        name="PoseLookup",
+        executable="transform_node",
+        name="transform_node",
     )
     #,
     # object_detector_node = Node(
@@ -35,6 +35,6 @@ def generate_launch_description():
     return launch.LaunchDescription([
         brain_node,
         arduino_bridge_node,
-        transform_node,
+        transform_node
         #object_detector_node
     ])
