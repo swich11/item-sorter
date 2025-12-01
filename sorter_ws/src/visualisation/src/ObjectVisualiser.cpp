@@ -20,21 +20,21 @@ ObjectVisualiser::ObjectVisualiser() : Node("visualiser") {
     marker_label_map = {
         {"RedSquare", ObjectMarkerInfo{ObjectID::RedSquare, Marker::CUBE, 255.0, 0.0, 0.0, 0.05, 0.05, 0.05, false}},
         {"RedCircle", ObjectMarkerInfo{ObjectID::RedCircle, Marker::SPHERE, 255.0, 0.0, 0.0, 0.05, 0.05, 0.05, false}},
-        {"RedHexagon", ObjectMarkerInfo{ObjectID::RedHexagon, Marker::MESH_RESOURCE, 255.0, 0.0, 0.0, 0.05, 0.05, 0.05, true, 
+        {"RedHexagon", ObjectMarkerInfo{ObjectID::RedHexagon, Marker::CYLINDER, 255.0, 0.0, 0.0, 0.05, 0.05, 0.05, true, 
             "package://visualisation/meshes/hex_prism.stl"}},
         {"GreenSquare", ObjectMarkerInfo{ObjectID::GreenSquare, Marker::CUBE, 0.0, 255.0, 0.0, 0.05, 0.05, 0.05, false}},
         {"GreenCircle", ObjectMarkerInfo{ObjectID::GreenCircle, Marker::SPHERE, 0.0, 255.0, 0.0, 0.05, 0.05, 0.05, false}},
-        {"GreenHexagon", ObjectMarkerInfo{ObjectID::GreenHexagon, Marker::MESH_RESOURCE, 0.0, 255.0, 0.0, 0.05, 0.05, 0.05, true, 
+        {"GreenHexagon", ObjectMarkerInfo{ObjectID::GreenHexagon, Marker::CYLINDER, 0.0, 255.0, 0.0, 0.05, 0.05, 0.05, true, 
             "package://visualisation/meshes/hex_prism.stl"}},
         {"BlueSquare", ObjectMarkerInfo{ObjectID::BlueSquare, Marker::CUBE, 0.0, 0.0, 255.0, 0.05, 0.05, 0.05, false}},
         {"BlueCircle", ObjectMarkerInfo{ObjectID::BlueCircle, Marker::SPHERE, 0.0, 0.0, 255.0, 0.05, 0.05, 0.05, false}},
-        {"BlueHexagon", ObjectMarkerInfo{ObjectID::BlueHexagon, Marker::MESH_RESOURCE, 0.0, 0.0, 255.0, 0.05, 0.05, 0.05, true, 
+        {"BlueHexagon", ObjectMarkerInfo{ObjectID::BlueHexagon, Marker::CYLINDER, 0.0, 0.0, 255.0, 0.05, 0.05, 0.05, true, 
             "package://visualisation/meshes/hex_prism.stl"}},
-        {"CircleBucket", ObjectMarkerInfo{ObjectID::CircleBucket, Marker::MESH_RESOURCE, 255.0, 0.0, 0.0, 0.1, 0.1, 0.1, true, 
+        {"CircleBucket", ObjectMarkerInfo{ObjectID::CircleBucket, Marker::CYLINDER, 255.0, 0.0, 0.0, 0.1, 0.1, 0.1, true, 
             "package://visualisation/meshes/circle_bin.stl"}},
-        {"SquareBucket", ObjectMarkerInfo{ObjectID::SquareBucket, Marker::MESH_RESOURCE, 0.0, 0.0, 255.0, 0.1, 0.1, 0.1, true, 
+        {"SquareBucket", ObjectMarkerInfo{ObjectID::SquareBucket, Marker::CYLINDER, 0.0, 0.0, 255.0, 0.1, 0.1, 0.1, true, 
             "package://visualisation/meshes/square_bin.stl"}},
-        {"HexagonBucket", ObjectMarkerInfo{ObjectID::HexagonBucket, Marker::MESH_RESOURCE, 0.0, 255.0, 0.0, 0.1, 0.1, 0.1, true, 
+        {"HexagonBucket", ObjectMarkerInfo{ObjectID::HexagonBucket, Marker::CYLINDER, 0.0, 255.0, 0.0, 0.1, 0.1, 0.1, true, 
             "package://visualisation/meshes/hex_bin.stl"}},
     };
 }
@@ -56,6 +56,7 @@ void ObjectVisualiser::object_array_callback(const interfaces::msg::LabelledPose
             labels_detected.insert(object_info.id);
             marker.type = object_info.type;
             if (object_info.has_mesh) {
+                marker.type = visualization_msgs::msg::Marker::MESH_RESOURCE;
                 marker.mesh_resource = object_info.mesh_resource;
                 marker.mesh_use_embedded_materials = false;
             }
