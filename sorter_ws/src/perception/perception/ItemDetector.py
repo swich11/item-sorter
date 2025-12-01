@@ -110,7 +110,7 @@ class ItemDetector(Node):
         l_pose_array = LabelledPoseArray()
         l_pose_array.header.stamp = msg.header.stamp
         # l_pose_array.header.frame_id = "camera_depth_optical_frame"
-        l_pose_array.header.frame_id = "camera_depth_opitcal_frame"
+        l_pose_array.header.frame_id = "camera_depth_optical_frame"
 
 
         if (self.depth_image is None):
@@ -145,8 +145,8 @@ class ItemDetector(Node):
                         l_pose.pose.position.x = np.average((x1 + us - self.ppx) * Z / self.fx) / 1000.0
                         l_pose.pose.position.y = np.average((y1 + vs - self.ppy) * Z / self.fy) / 1000.0
                         l_pose.pose.position.z = np.average(Z) / 1000.0
-                        l_pose.pose.orientation.w = 1.0
-                        l_pose.pose.orientation.x = 0.0
+                        l_pose.pose.orientation.w = 0.924
+                        l_pose.pose.orientation.x = -0.383
                         l_pose.pose.orientation.y = 0.0
                         l_pose.pose.orientation.z = 0.0
                         l_pose_array.poses.append(l_pose)

@@ -121,6 +121,8 @@ void Brain::update_item_map(const interfaces::msg::LabelledPoseArray &msg) {
         }
         catch (std::out_of_range const&) {}
     }
+
+    // TODO: dequeue items and goals that are not recent
 }
 
 
@@ -199,11 +201,13 @@ inline void Brain::publish_item_pose(const std::string &label) {
 
 
 std::string Brain::get_goal_label(const std::string &item_label) {
-    std::string goal_label = item_label;
-    for(int i = 0; i < static_cast<int>(item_label.length()); i++) {
-        if (isdigit(item_label[i])) {
-            goal_label = item_label.substr(0, i);
-        }
+    std::string goal_label = "Bucket";
+    if (item_label.find("Square") != std::string::npos) {
+        goal_label = "SquareBucket";
+    } else if (item_label.find("Circle") != std::string::npos) {
+        goal_label = "CircleBucket";
+    } else if (item_label.find("Hexagon") != std::string::npos) {
+        goal_label = "HexagonBucket";
     }
     return goal_label;
 }
