@@ -2,13 +2,12 @@
 <robot name="ur_with_end_effector" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
   <!-- UR5e -->
-  <xacro:arg name="name" default="ur5"/>
-  <xacro:arg name="ur_type" default="ur5"/>
-
+  <xacro:arg name="name" default="ur5e"/>
+  <xacro:arg name="ur_type" default="ur5e"/>
   <xacro:include filename="$(find ur_description)/urdf/ur.urdf.xacro"/>
 
   <!-- End effector-->
-  <xacro:include filename="$(find robot_description)/urdf/end_effector.urdf"/>
+  <xacro:include filename="$(find robot_description)/urdf/end_effector.urdf.xacro"/>
 
   <!-- Connect EE to wrist -->
   <joint name="ur5_end_effector_coupler_joint" type="fixed">
