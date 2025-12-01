@@ -35,9 +35,7 @@ public:
     // Debugging function
     void send_move_request(const geometry_msgs::msg::Pose &pose);
 
-    void item_topic_callback(const interfaces::msg::LabelledPoseArray &msg);
-
-    void goal_topic_callback(const interfaces::msg::LabelledPoseArray &msg);
+    void object_topic_callback(const interfaces::msg::LabelledPoseArray &msg);
 
     void send_move_request(const std::string &label);
 
@@ -59,10 +57,10 @@ public:
     void spin_wait_for_items();
 
 private:
-    Semaphore item_queue_sem{0};
-    std::queue<std::string> item_queue;
-    std::thread move_call_thread;
     bool running;
+    Semaphore item_queue_sem{0};
+    std::thread move_call_thread;
+    std::queue<std::string> item_queue;
     std::map<std::string, ItemPose> item_pose_map;
     std::map<std::string, geometry_msgs::msg::PoseStamped> goal_pose_map;
 
@@ -71,5 +69,4 @@ private:
     rclcpp::Client<interfaces::srv::TransformLookupArray>::SharedPtr transform_client;
     rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr pose_update_publisher;
     rclcpp::Subscription<interfaces::msg::LabelledPoseArray>::SharedPtr item_pose_subscription;
-    rclcpp::Subscription<interfaces::msg::LabelledPoseArray>::SharedPtr goal_pose_subscription;
 };

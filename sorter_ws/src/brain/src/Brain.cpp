@@ -9,10 +9,7 @@ Brain::Brain() : Node("brain") {
     move_client = this->create_client<interfaces::srv::Move>("/moveit_planner/move");
     transform_client = this->create_client<interfaces::srv::TransformLookupArray>("/pose_lookup_array");
     item_pose_subscription = this->create_subscription<interfaces::msg::LabelledPoseArray>(
-        "/camera/objects/labelled_pose_array", 10, std::bind(&Brain::item_topic_callback, this, _1)
-    );
-    goal_pose_subscription = this->create_subscription<interfaces::msg::LabelledPoseArray>(
-        "/camera/goals/labelled_pose_array", 10, std::bind(&Brain::goal_topic_callback, this, _1)
+        "/camera/objects/labelled_pose_array", 10, std::bind(&Brain::object_topic_callback, this, _1)
     );
     pose_update_publisher = this->create_publisher<geometry_msgs::msg::Pose>(
         "/brain/move/pose", 10
@@ -34,13 +31,8 @@ Brain::~Brain() {
 }
 
 
-void Brain::item_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
+void Brain::object_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
     transform_labelled_pose_array(msg, std::bind(&Brain::update_item_map, this, _1));
-}
-
-
-void Brain::goal_topic_callback(const interfaces::msg::LabelledPoseArray &msg) {
-    transform_labelled_pose_array(msg, std::bind(&Brain::update_goal_map, this, _1));
 }
 
 
@@ -87,8 +79,27 @@ void Brain::transform_labelled_pose_array(const interfaces::msg::LabelledPoseArr
 
 
 void Brain::update_item_map(const interfaces::msg::LabelledPoseArray &msg) {
-    for (auto item_pose : msg.poses) {
-        // Update item pose in the map
+    // sort buckets and items
+    interfaces::msg::LabelledPoseArray item_poses;
+    interfaces::msg::LabelledPoseArray goal_poses;
+    for (auto pose : msg.poses) {
+        if (pose.label.find("Bucket") != std::string::npos) {
+            goal_poses.poses.push_back(pose);
+        } else {
+            item_poses.poses.push_back(pose);
+        }
+    }
+
+    // Add goal poses to map
+    for (auto goal_pose : goal_poses.poses) {
+        geometry_msgs::msg::PoseStamped pose_stamped;
+        pose_stamped.header = msg.header;
+        pose_stamped.pose = goal_pose.pose;
+        goal_pose_map[goal_pose.label] = pose_stamped;
+    }
+
+    // Add item poses to map and dispatch
+    for (auto item_pose : item_poses.poses) {
         try {
             item_pose_map.at(item_pose.label).pose = item_pose.pose;
         }
@@ -109,16 +120,6 @@ void Brain::update_item_map(const interfaces::msg::LabelledPoseArray &msg) {
             }
         }
         catch (std::out_of_range const&) {}
-    }
-}
-
-
-void Brain::update_goal_map(const interfaces::msg::LabelledPoseArray &msg) {
-    for (auto pose : msg.poses) {
-        geometry_msgs::msg::PoseStamped pose_stamped;
-        pose_stamped.header = msg.header;
-        pose_stamped.pose = pose.pose;
-        goal_pose_map[pose.label] = pose_stamped;
     }
 }
 
@@ -249,8 +250,8 @@ int test_pose_callbacks(int argc, char* argv[]) {
     l_array.poses.push_back(l_pose);
 
 
-    brain->item_topic_callback(l_array);
-    brain->goal_topic_callback(l_array);
+    // brain->item_topic_callback(l_array);
+    // brain->goal_topic_callback(l_array);
 
     rclcpp::spin(brain);
     rclcpp::shutdown();

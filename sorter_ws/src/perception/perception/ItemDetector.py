@@ -109,7 +109,8 @@ class ItemDetector(Node):
 
         l_pose_array = LabelledPoseArray()
         l_pose_array.header.stamp = msg.header.stamp
-        l_pose_array.header.frame_id = "camera_depth_optical_frame"
+        # l_pose_array.header.frame_id = "camera_depth_optical_frame"
+        l_pose_array.header.frame_id = "camera_depth_opitcal_frame"
 
 
         if (self.depth_image is None):
