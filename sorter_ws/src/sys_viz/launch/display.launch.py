@@ -30,10 +30,13 @@ def get_ur_driver_launch():
     #     'urdf',
     #     'ur_with_end_effector.xacro'
     # )
-    ur_control_launch_path = os.path.join(get_package_share_directory('ur_robot_driver'),'launch','ur_control.launch.py')
-    
+
     return IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(ur_control_launch_path),
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory('ur_robot_driver'),'launch','ur_control.launch.py'
+            )
+        ),
         launch_arguments={
             'ur_type': 'ur5e',
             'robot_ip': '192.168.0.100',
@@ -50,17 +53,17 @@ def get_moveit_launch():
         'ur_with_end_effector.xacro'
     )
 
-    ur_moveit_octomap_launch_path = os.path.join(
-        get_package_share_directory('moveit_config'),
-        'launch;,'
-        'ur_moveit_octomap.launch.py'
-    )
-
     return TimerAction(
         period=10.0,
         actions=[
             IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(ur_moveit_octomap_launch_path),
+                PythonLaunchDescriptionSource(
+                    os.path.join(
+                        get_package_share_directory('moveit_config'),
+                        'launch;,'
+                        'ur_moveit_octomap.launch.py'
+                    )
+                ),
                 launch_arguments={
                     'robot_ip': '192.168.0.100',
                     'ur_type': 'ur5e',
@@ -72,16 +75,17 @@ def get_moveit_launch():
         ]
     )
 
-def get_auxiliary_launch():
-    auxiliary_launch_path = os.path.join(
-        get_package_share_directory('sys_viz'),
+def get_moveit_planer_launch():
+    moveit_planner_launch_path = os.path.join(
+        get_package_share_directory('moveit_planner'),
         'launch',
-        'auxiliary.launch.py'
+        'planner.launch.py'
     )
 
     return IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(auxiliary_launch_path)
-    )   
+        PythonLaunchDescriptionSource(moveit_planner_launch_path)
+    )
+
 
 
 def generate_launch_description():
@@ -89,6 +93,6 @@ def generate_launch_description():
         get_realsense_launch(),
         get_ur_driver_launch(),
         get_moveit_launch(),
-        get_auxiliary_launch()
+        get_moveit_planer_launch(),
     ]
     return LaunchDescription(launch_description)
