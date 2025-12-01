@@ -21,7 +21,7 @@
 
 
 struct ItemPose {
-    geometry_msgs::msg::Pose pose;
+    geometry_msgs::msg::PoseStamped pose;
     bool in_queue;
 };
 
@@ -33,7 +33,7 @@ public:
     ~Brain();
 
     // Debugging function
-    void send_move_request(const geometry_msgs::msg::Pose &pose);
+    void send_move_request(const geometry_msgs::msg::PoseStamped &pose);
 
     void object_topic_callback(const interfaces::msg::LabelledPoseArray &msg);
 
@@ -67,6 +67,6 @@ private:
     rclcpp::TimerBase::SharedPtr timer;
     rclcpp::Client<interfaces::srv::Move>::SharedPtr move_client;
     rclcpp::Client<interfaces::srv::TransformLookupArray>::SharedPtr transform_client;
-    rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr pose_update_publisher;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_update_publisher;
     rclcpp::Subscription<interfaces::msg::LabelledPoseArray>::SharedPtr item_pose_subscription;
 };
