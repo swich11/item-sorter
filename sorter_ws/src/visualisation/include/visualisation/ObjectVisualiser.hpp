@@ -69,5 +69,7 @@ private:
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub;
     std::map<std::string, ObjectMarkerInfo> marker_label_map;
     visualization_msgs::msg::MarkerArray last_marker_array;
-
+    float object_size;
+    float bin_size;
+    float mesh_size;
 };
