@@ -18,6 +18,7 @@ set(msg_files
   "msg/LabelledPoseArray.msg"
   "srv/Move.srv"
   "srv/TransformLookup.srv"
+  "srv/TransformLookupArray.srv"
 )
 
 

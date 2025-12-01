@@ -12,7 +12,10 @@ find_package(geometry_msgs REQUIRED)
 find_package(interfaces REQUIRED)
 
 
-add_executable(brain src/Brain.cpp)
+add_executable(brain 
+  src/Brain.cpp
+  src/Semaphore.cpp
+)
 target_compile_features(brain PUBLIC cxx_std_17)
 target_include_directories(brain PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
