@@ -9,10 +9,6 @@
 #include "geometry_msgs/msg/vector3.hpp"
 #include "std_msgs/msg/color_rgba.hpp"
 
-
-// TODO: get STL files for each object
-
-
 enum ObjectID {
     RedSquare,
     RedCircle,
@@ -69,7 +65,7 @@ private:
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub;
     std::map<std::string, ObjectMarkerInfo> marker_label_map;
     visualization_msgs::msg::MarkerArray last_marker_array;
-    float object_size;
-    float bin_size;
-    float mesh_size;
+    constexpr float object_size = 0.04;
+    constexpr float bin_size = 0.1;
+    constexpr float mesh_size = 1.0;
 };

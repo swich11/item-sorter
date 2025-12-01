@@ -16,10 +16,6 @@ ObjectVisualiser::ObjectVisualiser() : Node("visualiser") {
     
     using namespace visualization_msgs::msg;
     last_marker_array = MarkerArray();
-    // TODO : adjust scale of bins and hexagons
-    object_size = 0.04; // 4cm for objects
-    bin_size = 0.1; // 10cm for bins
-    mesh_size = 1.0; // default 1:1 scale for meshes
     marker_label_map = {
         {"RedSquare", ObjectMarkerInfo{ObjectID::RedSquare, Marker::CUBE, 255.0, 0.0, 0.0, object_size, object_size, object_size, false}},
         {"RedCircle", ObjectMarkerInfo{ObjectID::RedCircle, Marker::SPHERE, 255.0, 0.0, 0.0, object_size, object_size, object_size, false}},
@@ -33,11 +29,11 @@ ObjectVisualiser::ObjectVisualiser() : Node("visualiser") {
         {"BlueCircle", ObjectMarkerInfo{ObjectID::BlueCircle, Marker::SPHERE, 0.0, 0.0, 255.0, object_size, object_size, object_size, false}},
         {"BlueHexagon", ObjectMarkerInfo{ObjectID::BlueHexagon, Marker::CYLINDER, 0.0, 0.0, 255.0, mesh_size, mesh_size, mesh_size, true, 
             "package://visualisation/meshes/hex_prism.stl"}},
-        {"CircleBucket", ObjectMarkerInfo{ObjectID::CircleBucket, Marker::CYLINDER, 255.0, 0.0, 0.0, mesh_size, mesh_size, mesh_size, true, 
+        {"CircleBucket", ObjectMarkerInfo{ObjectID::CircleBucket, Marker::CYLINDER, 180.0, 0.0, 0.0, mesh_size, mesh_size, mesh_size, true, 
             "package://visualisation/meshes/circle_bin.stl"}},
-        {"SquareBucket", ObjectMarkerInfo{ObjectID::SquareBucket, Marker::CYLINDER, 0.0, 0.0, 255.0, mesh_size, mesh_size, mesh_size, true, 
+        {"SquareBucket", ObjectMarkerInfo{ObjectID::SquareBucket, Marker::CYLINDER, 0.0, 0.0, 180.0, mesh_size, mesh_size, mesh_size, true, 
             "package://visualisation/meshes/square_bin.stl"}},
-        {"HexagonBucket", ObjectMarkerInfo{ObjectID::HexagonBucket, Marker::CYLINDER, 0.0, 255.0, 0.0, mesh_size, mesh_size, mesh_size, true, 
+        {"HexagonBucket", ObjectMarkerInfo{ObjectID::HexagonBucket, Marker::CYLINDER, 0.0, 180.0, 0.0, mesh_size, mesh_size, mesh_size, true,   
             "package://visualisation/meshes/hex_bin.stl"}},
     };
 }
