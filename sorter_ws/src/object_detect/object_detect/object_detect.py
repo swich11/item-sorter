@@ -611,25 +611,23 @@ class objectDetect(Node):
         self.annotated_pub.publish(self.cv_bridge.cv2_to_imgmsg(annotated, encoding="bgr8"))
         self.mask_pub.publish(self.cv_bridge.cv2_to_imgmsg(complete_mask, encoding="mono8"))
 
-        if annotated is not None and complete_mask is not None:
-            cv2.imshow('annotated', annotated)
-            cv2.imshow('complete_mask', complete_mask)
-            cv2.waitKey(1)
+        # if annotated is not None and complete_mask is not None:
+        #     cv2.imshow('annotated', annotated)
+        #     cv2.imshow('complete_mask', complete_mask)
+        #     cv2.waitKey(1)
         return
 
 def main():
     rclpy.init()
     object_detect = objectDetect()
-    rclpy.spin(object_detect)
-    rclpy.shutdown()
-    # executor = MultiThreadedExecutor(num_threads=1)
-    # executor.add_node(object_detect)
-    # try:
-    #     executor.spin()
-    # finally:
-    #     executor.shutdown()
-    #     object_detect.destroy_node()
-    #     rclpy.shutdown()
+    executor = MultiThreadedExecutor(num_threads=3)
+    executor.add_node(object_detect)
+    try:
+        executor.spin()
+    finally:
+        executor.shutdown()
+        object_detect.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
