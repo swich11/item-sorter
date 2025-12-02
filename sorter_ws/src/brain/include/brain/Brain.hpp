@@ -126,7 +126,7 @@ public:
 
         Eigen::Vector4d mean_quat = std::accumulate(prev_orients.begin(), prev_orients.end(), Eigen::Vector4d(0.0, 0.0, 0.0, 0.0))
                                     / static_cast<float>(MOVING_AVERAGE_LEN);
-        Eigen::Vector3d mean_pos = std::accumulate(prev_orients.begin(), prev_orients.end(), Eigen::Vector3d(0.0, 0.0, 0.0))
+        Eigen::Vector3d mean_pos = std::accumulate(prev_points.begin(), prev_points.end(), Eigen::Vector3d(0.0, 0.0, 0.0))
                                     / static_cast<float>(MOVING_AVERAGE_LEN);
         ret.pose.position.x = mean_pos.x();
         ret.pose.position.y = mean_pos.y();

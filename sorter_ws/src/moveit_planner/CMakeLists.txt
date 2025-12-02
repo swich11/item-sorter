@@ -10,6 +10,8 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(interfaces REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 add_executable(planner src/Planner.cpp)
 target_compile_features(planner PUBLIC c_std_99 cxx_std_17)
@@ -19,9 +21,11 @@ target_include_directories(planner PUBLIC
 )
 ament_target_dependencies(
   planner
-  "moveit_ros_planning_interface"
-  "rclcpp"
-  "interfaces"
+  moveit_ros_planning_interface
+  rclcpp
+  interfaces
+  geometry_msgs
+  std_msgs
 )
 install(TARGETS 
   planner

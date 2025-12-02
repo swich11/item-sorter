@@ -40,6 +40,7 @@ Planner::Planner() : Node("planner") {
 
     grabbed_home_pose = false;
     goal_pose_subscription = this->create_subscription<geometry_msgs::msg::PoseStamped>("/brain/move/pose", 10, std::bind(&Planner::goalPoseCallback, this, _1));
+    cancel_move_subscription = this->create_subscription<std_msgs::msg::Empty>("/brain/move/cancel", 10, std::bind(&Planner::cancelMoveCallback, this, _1));
     move_server = this->create_service<interfaces::srv::Move>("/moveit_planner/move", std::bind(&Planner::moveServiceCallback, this, _1, _2));
     arduino_pub = this->create_publisher<std_msgs::msg::String>("/arduino_cmds", 10);   // initialize publisher to send commands to Arduino
     RCLCPP_INFO(this->get_logger(), "Planner Launched. Ready for Commands");
@@ -230,6 +231,11 @@ void Planner::goalPoseCallback(const geometry_msgs::msg::PoseStamped &pose) {
     auto g_pose = pose;
     g_pose.pose.position.z += GRIPPER_HEIGHT + GRIPPER_OFFSET; // 
     goal_pose = g_pose;
+}
+
+
+void Planner::cancelMoveCallback(const std_msgs::msg::Empty &empty) {
+    // TODO: this
 }
 
 
