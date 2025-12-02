@@ -34,8 +34,13 @@ void TransformNode::broadcast_static_camera_transform() {
     tf.transform.rotation = tf2::toMsg(y_rot * z_rot); // rotate yaw first, then pitch
 
     tf.transform.translation.x = 1.4;
-    tf.transform.translation.y = 0.0;
-    tf.transform.translation.z = 0.7;
+    tf.transform.translation.y = 0.0174152;
+    tf.transform.translation.z = 0.72;
+
+    tf.transform.rotation.x = -0.388123;
+    tf.transform.rotation.y = -0.0054127;
+    tf.transform.rotation.z = 0.92155;
+    tf.transform.rotation.w = 0.0087602;
 
     tf_static_broadcaster_->sendTransform(tf);
 }
