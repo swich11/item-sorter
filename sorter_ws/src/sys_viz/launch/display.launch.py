@@ -24,11 +24,11 @@ def get_realsense_launch():
     )
 
 def get_ur_driver_launch():
-    # ur_with_EE_path = os.path.join(
-    #     get_package_share_directory('robot_description'),
-    #     'urdf',
-    #     'ur_with_end_effector.xacro'
-    # )
+    ur_with_EE_path = os.path.join(
+        get_package_share_directory('robot_description'),
+        'urdf',
+        'ur_with_end_effector.xacro'
+    )
 
     return IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -41,7 +41,7 @@ def get_ur_driver_launch():
             'robot_ip': '192.168.0.100',
             'use_fake_hardware': 'false',
             'launch_rviz': 'false',
-            #'decription_file': ur_with_EE_path
+            'decription_file': ur_with_EE_path
         }.items()
     )
 
