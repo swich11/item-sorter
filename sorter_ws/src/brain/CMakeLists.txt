@@ -10,18 +10,25 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(interfaces REQUIRED)
+find_package(Eigen3 REQUIRED)
 
+include_directories(${EIGEN3_INCLUDE_DIRS})
 
-add_executable(brain src/Brain.cpp)
+add_executable(brain 
+  src/Brain.cpp
+  src/Semaphore.cpp
+)
 target_compile_features(brain PUBLIC cxx_std_17)
 target_include_directories(brain PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
 
+
 ament_target_dependencies(
   brain
   rclcpp
+  Eigen3
   geometry_msgs
   interfaces
 )

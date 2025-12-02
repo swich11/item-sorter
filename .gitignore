@@ -2,4 +2,4 @@
 **/build/
 **/install/
 **/log/
-topics/
+**/__pycache__/

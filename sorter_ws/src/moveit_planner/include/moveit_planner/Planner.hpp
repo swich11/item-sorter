@@ -15,13 +15,16 @@
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 #include <moveit_msgs/msg/planning_scene.h>
 #include <geometry_msgs/msg/pose.hpp>
+#include <std_msgs/msg/empty.hpp>
 
 #include "interfaces/srv/move.hpp"
 
 
 constexpr double POSITION_PRECISION = 0.01; // 1 cm
 constexpr double ORIENTATION_PRECISION = 5.0/180.0 * M_PI; // 5 degrees
-
+constexpr double GRIPPER_HEIGHT = 0.16;
+constexpr double GRIPPER_OFFSET = 0.1;
+constexpr double GRAB_OFFSET = 0.01;
 
 
 class Planner : public rclcpp::Node {
@@ -36,12 +39,14 @@ class Planner : public rclcpp::Node {
             float x,float y, float z,float qx,float qy,float qz,float qw
         );
 
-        void moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::Request> req,
+        void moveServiceCallback(std::shared_ptr<interfaces::srv::Move::Request> req,
                                  std::shared_ptr<interfaces::srv::Move::Response> res);
 
-        void goalPoseCallback(const geometry_msgs::msg::Pose &pose);
+        void goalPoseCallback(const geometry_msgs::msg::PoseStamped &pose);
 
-        bool move(std::shared_ptr<interfaces::srv::Move::Response> res);
+        void cancelMoveCallback(const std_msgs::msg::Empty&);
+
+        bool move(std::shared_ptr<interfaces::srv::Move::Response> res, bool grasp);
 
         void asyncMoveHome();
 
@@ -64,11 +69,13 @@ class Planner : public rclcpp::Node {
         std::shared_ptr<planning_scene_monitor::PlanningSceneMonitor> planning_scene_monitor;
         std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_interface;
 
-        rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr goal_pose_subscription;
+        rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pose_subscription;
+        rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr cancel_move_subscription;
         rclcpp::Service<interfaces::srv::Move>::SharedPtr move_server;
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr arduino_pub;    // publisher to send commands to Arduino
         
-        geometry_msgs::msg::Pose goal_pose;
+        geometry_msgs::msg::PoseStamped goal_pose;
         geometry_msgs::msg::Pose home_pose;
         bool grabbed_home_pose;
+        bool move_canceled;
 };

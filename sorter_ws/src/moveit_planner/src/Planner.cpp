@@ -6,6 +6,9 @@ using std::placeholders::_2;
 using namespace std::chrono_literals;
 
 
+// TODO: make grasp handle case where new poses aren't being streamed correctly.
+
+
 
 Planner::Planner() : Node("planner") {
     move_group_interface = std::make_unique<moveit::planning_interface::MoveGroupInterface>(std::shared_ptr<rclcpp::Node>(this), "ur_manipulator");
@@ -36,13 +39,15 @@ Planner::Planner() : Node("planner") {
     setPathConstraints();
 
     grabbed_home_pose = false;
-    goal_pose_subscription = this->create_subscription<geometry_msgs::msg::Pose>("/brain/move/pose", 10, std::bind(&Planner::goalPoseCallback, this, _1));
+    move_canceled = false;
+    goal_pose_subscription = this->create_subscription<geometry_msgs::msg::PoseStamped>("/brain/move/pose", 10, std::bind(&Planner::goalPoseCallback, this, _1));
+    cancel_move_subscription = this->create_subscription<std_msgs::msg::Empty>("/brain/move/cancel", 10, std::bind(&Planner::cancelMoveCallback, this, _1));
     move_server = this->create_service<interfaces::srv::Move>("/moveit_planner/move", std::bind(&Planner::moveServiceCallback, this, _1, _2));
     arduino_pub = this->create_publisher<std_msgs::msg::String>("/arduino_cmds", 10);   // initialize publisher to send commands to Arduino
     RCLCPP_INFO(this->get_logger(), "Planner Launched. Ready for Commands");
 }
 
-void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::Request> req,
+void Planner::moveServiceCallback(std::shared_ptr<interfaces::srv::Move::Request> req,
                                   std::shared_ptr<interfaces::srv::Move::Response> res) {
     RCLCPP_INFO(this->get_logger(), "Received Move Request.");
     if (!grabbed_home_pose) {
@@ -59,31 +64,34 @@ void Planner::moveServiceCallback(const std::shared_ptr<interfaces::srv::Move::R
         grabbed_home_pose = true;
         
         // For now unless we add pose rotation
-        goal_pose.orientation = home_pose.orientation;
+        goal_pose.pose.orientation = home_pose.orientation;
+        goal_pose.header.stamp = this->get_clock()->now();
+        goal_pose.header.frame_id = "tool0";
     }
     move_group_interface->stop();
-    move(res, target_pose);
-    RCLCPP_INFO(this->get_logger(), "At Start Pose.");
-    grasp();
-    target_pose.position = req->goal_pose.position;
-    move(res, target_pose);
+    move(res, req->grasp);
     RCLCPP_INFO(this->get_logger(), "At Goal Pose.");
-    // ungrasp();
-    asyncMoveHome();
 }
 
 
-bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res) {
-    RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f, w: %f", goal_pose.orientation.x, 
-                                                                  goal_pose.orientation.y,
-                                                                  goal_pose.orientation.z,
-                                                                  goal_pose.orientation.w);
+bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res, bool grasp) {
+    RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f, w: %f", goal_pose.pose.orientation.x, 
+                                                                  goal_pose.pose.orientation.y,
+                                                                  goal_pose.pose.orientation.z,
+                                                                  goal_pose.pose.orientation.w);
     moveit::planning_interface::MoveGroupInterface::Plan plan;
     geometry_msgs::msg::Pose tracked_goal = home_pose; // Anything different to the goal_pose works
     do {
-        if (!isPoseClose(tracked_goal, goal_pose)) {
+        if (move_canceled) {
+            // Move canceled by brain, don't continue
+            move_group_interface->stop();
+            res->message = "Planning was cancelled during move.";
+            res->success = false;
+            return false;
+        }
+        if (!isPoseClose(tracked_goal, goal_pose.pose)) {
             // Change goal when the object moves
-            tracked_goal = goal_pose;
+            tracked_goal = goal_pose.pose;
             move_group_interface->setPoseTarget(tracked_goal);
             move_group_interface->stop();
             auto ret = move_group_interface->plan(plan);
@@ -100,6 +108,41 @@ bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res) {
         }
         rclcpp::sleep_for(50ms);
     } while (!move_group_interface->getMoveGroupClient().action_server_is_ready());
+    // Pose is close to tracked goal.
+
+    // drop from height
+    if (!grasp) {
+        this->ungrasp();
+        res->success = true;
+        return true;
+    }
+    // attempt grasp
+    auto grab_pose = goal_pose.pose;
+    grab_pose.position.z = GRAB_OFFSET;
+    move_group_interface->setPoseTarget(grab_pose);
+    move_group_interface->stop();
+    auto ret = move_group_interface->plan(plan);
+    if (ret != moveit::core::MoveItErrorCode::SUCCESS) {
+        RCLCPP_ERROR(this->get_logger(), "Planning Failed :(.");
+        res->success = false;
+        RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f", tracked_goal.position.x,
+                                                                tracked_goal.position.y,
+                                                                tracked_goal.position.z);
+        res->message = "Planning failed during grab: " + moveit::core::error_code_to_string(ret);
+        return false;
+    }
+    move_group_interface->execute(plan);
+    if (ret != moveit::core::MoveItErrorCode::SUCCESS) {
+        res->success = false;
+        RCLCPP_ERROR(this->get_logger(), "Execute Failed :(.");
+        res->success = false;
+        RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f", tracked_goal.position.x,
+                                                                tracked_goal.position.y,
+                                                                tracked_goal.position.z);
+        res->message = "Execute failed during grab: " + moveit::core::error_code_to_string(ret);
+        return false;
+    }
+    this->grasp();
 
     res->success = true;
     return true;
@@ -189,6 +232,18 @@ geometry_msgs::msg::Pose Planner::generatePoseMsg(float x, float y, float z, flo
     pose.position.y = y;
     pose.position.z = z;
     return pose;
+}
+
+
+void Planner::goalPoseCallback(const geometry_msgs::msg::PoseStamped &pose) {
+    auto g_pose = pose;
+    g_pose.pose.position.z += GRIPPER_HEIGHT + GRIPPER_OFFSET; // 
+    goal_pose = g_pose;
+}
+
+
+void Planner::cancelMoveCallback(const std_msgs::msg::Empty&) {
+    // Cancel move call at some point
 }
 
 

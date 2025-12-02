@@ -94,6 +94,8 @@ class objectDetect(Node):
         self.object_pub = self.create_publisher(LabelledPoseArray, "/camera/objects/labelled_pose_array", 10)
         self.goal_pub = self.create_publisher(LabelledPoseArray, "/camera/goals/labelled_pose_array", 10) 
         self.marker_pub = self.create_publisher(MarkerArray, "/camera/markers", 10)
+        self.annotated_pub = self.create_publisher(Image, "/camera/annotated_image", 10)
+        self.mask_pub = self.create_publisher(Image, "/camera/complete_mask", 10)
         
         # Initialize Aruco parameters
         self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_6X6_50)
@@ -158,7 +160,7 @@ class objectDetect(Node):
     def pixel_to_global(self, pixel_pt, depth_offset=0.0):
         cX, cY = pixel_pt
         if self.depth_image is not None and self.intrinsics is not None and cX < self.intrinsics.width and cY < self.intrinsics.height:
-            [x,y,z] = rs.rs2_deproject_pixel_to_point(self.intrinsics, (cX, cY), self.depth_image[cY,cX]*0.001 + depth_offset)
+            [x, y, z] = rs.rs2_deproject_pixel_to_point(self.intrinsics, (cX, cY), self.depth_image[cY,cX]*0.001 + depth_offset)
             return [x, y, z]
         else:
             return None
@@ -196,7 +198,7 @@ class objectDetect(Node):
     # Create Rviz Marker message for visualization
     def make_marker(self, idx, colour_range, position, is_bin, shape=None, orientation=None):
         Marker_msg = Marker()
-        Marker_msg.header.frame_id = "camera_frame"
+        Marker_msg.header.frame_id = "camera_depth_optical_frame"
         Marker_msg.header.stamp = self.get_clock().now().to_msg()
         Marker_msg.ns = "detected_objects"
         Marker_msg.id = idx
@@ -384,10 +386,10 @@ class objectDetect(Node):
         # Initialize msgs
         objects = LabelledPoseArray()
         objects.header.stamp = self.get_clock().now().to_msg()
-        objects.header.frame_id = "camera_frame"
+        objects.header.frame_id = "camera_depth_optical_frame"
         goals = LabelledPoseArray()
         goals.header.stamp = self.get_clock().now().to_msg()
-        goals.header.frame_id = "camera_frame"
+        goals.header.frame_id = "camera_depth_optical_frame"
         markers = MarkerArray()
         
         if self.cv_image is None:
@@ -565,10 +567,10 @@ class objectDetect(Node):
         markers = MarkerArray()
         objects = LabelledPoseArray()
         objects.header.stamp = self.get_clock().now().to_msg()
-        objects.header.frame_id = "camera_frame"
+        objects.header.frame_id = "camera_depth_optical_frame"
         goals = LabelledPoseArray()
         goals.header.stamp = self.get_clock().now().to_msg()
-        goals.header.frame_id = "camera_frame"
+        goals.header.frame_id = "camera_depth_optical_frame"
         for idx, obj in enumerate(test_objects):
             marker_msg = self.make_marker(idx, obj['colour'], obj['position'], obj['is_bin'], obj['shape'])
             markers.markers.append(marker_msg)
@@ -606,6 +608,8 @@ class objectDetect(Node):
         self.object_pub.publish(objects)
         self.goal_pub.publish(goals)
         self.marker_pub.publish(markers)
+        self.annotated_pub.publish(self.cv_bridge.cv2_to_imgmsg(annotated, encoding="bgr8"))
+        self.mask_pub.publish(self.cv_bridge.cv2_to_imgmsg(complete_mask, encoding="mono8"))
 
         # if annotated is not None and complete_mask is not None:
         #     cv2.imshow('annotated', annotated)
