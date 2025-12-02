@@ -11,8 +11,11 @@ Brain::Brain() : Node("brain") {
     item_pose_subscription = this->create_subscription<interfaces::msg::LabelledPoseArray>(
         "/camera/objects/labelled_pose_array", 10, std::bind(&Brain::object_topic_callback, this, _1)
     );
-    pose_update_publisher = this->create_publisher<geometry_msgs::msg::Pose>(
+    pose_update_publisher = this->create_publisher<geometry_msgs::msg::PoseStamped>(
         "/brain/move/pose", 10
+    );
+    cancel_move_publisher = this->create_publisher<std_msgs::msg::Empty>(
+        "/brain/move/cancel", 10
     );
     move_call_thread = std::thread(&Brain::spin_wait_for_items, this);
     running = true;
@@ -50,7 +53,6 @@ void Brain::transform_labelled_pose_array(const interfaces::msg::LabelledPoseArr
     );
     req->to_link = "tool0";
     RCLCPP_INFO(this->get_logger(), "sending transform request.");
-
     transform_client->async_send_request(req, 
         [this, f_update_map, &msg](rclcpp::Client<interfaces::srv::TransformLookupArray>::SharedFuture future) {
             auto res = future.get();
@@ -95,47 +97,44 @@ void Brain::update_item_map(const interfaces::msg::LabelledPoseArray &msg) {
         geometry_msgs::msg::PoseStamped pose_stamped;
         pose_stamped.header = msg.header;
         pose_stamped.pose = goal_pose.pose;
-        goal_pose_map[goal_pose.label] = pose_stamped;
+        goal_pose_map[goal_pose.label].update_pose(pose_stamped);
     }
 
-    // Add item poses to map and dispatch
     for (auto item_pose : item_poses.poses) {
-        try {
-            item_pose_map.at(item_pose.label).pose = item_pose.pose;
-        }
-        catch (std::out_of_range const&) {
-            item_pose_map[item_pose.label].pose = item_pose.pose;
+        geometry_msgs::msg::PoseStamped pose_stamped;
+        pose_stamped.header = msg.header;
+        pose_stamped.pose = item_pose.pose;
+        item_pose_map[item_pose.label].pose.update_pose(pose_stamped);
+
+        auto &goal_pose = goal_pose_map.at(get_goal_label(item_pose.label));
+        if (!item_pose_map[item_pose.label].in_queue && 
+            goal_pose.calculate_conf() > 0.8 &&
+            item_pose_map[item_pose.label].pose.calculate_conf() > 0.8) {
+            // enqueue this
+            item_pose_map[item_pose.label].in_queue = true;
+            item_queue.push(item_pose.label);
+            item_queue_sem.release();
+        } else {
+            // move dispatcher checks if item is still in queue using this
             item_pose_map[item_pose.label].in_queue = false;
         }
-        // Queue item to be moved to goal
-        try {
-            // check if goal is found and recent, queue when it is and release semaphore.
-            auto& goal_pose = goal_pose_map.at(get_goal_label(item_pose.label));
-            if (!item_pose_map[item_pose.label].in_queue
-                    && rclcpp::Time(msg.header.stamp) - rclcpp::Time(goal_pose.header.stamp) 
-                        < rclcpp::Duration(1, 0)) {
-                item_queue.push(item_pose.label);
-                item_pose_map[item_pose.label].in_queue = true;
-                item_queue_sem.release(); // Release semaphore for movement goal
-            }
-        }
-        catch (std::out_of_range const&) {}
     }
-
-    // TODO: dequeue items and goals that are not recent
 }
 
 
 // Waits for items to be added to the queue and sends the move request once they are added.
 void Brain::spin_wait_for_items() {
     while (true) {
-        item_queue_sem.acquire();
         if (!this->running) {
             break;
         }
+        item_queue_sem.acquire();
         RCLCPP_INFO(this->get_logger(), "Waiting for item semaphore.");
         auto item_label = item_queue.front();
-        send_move_request(item_label);
+        if (item_pose_map[item_label].in_queue) {
+            // only send request if the item is actually in the queue
+            send_move_request(item_label);
+        }
         item_queue.pop();
     }
 }
@@ -147,7 +146,11 @@ void Brain::send_move_request(const std::string &item_label) {
     this->timer = this->create_wall_timer(50ms, 
         std::function<void()>(std::bind(&Brain::publish_item_pose, this, std::cref(item_label))));
     RCLCPP_INFO(this->get_logger(), "Sending Move Request %s", item_label.c_str());
+    
+    // Sends a request to the moveit planner which performs moves continuously.
+    // the moveit client will cancel if it can no longer see the object
 
+    // Go to item -> grab -> go to goal -> drop
     move_client->wait_for_service(100ms); // Don't pre-empt the service call
     move_client->async_send_request(req,
         [this, &item_label, &req](rclcpp::Client<interfaces::srv::Move>::SharedFuture future) {
@@ -159,18 +162,15 @@ void Brain::send_move_request(const std::string &item_label) {
                 req->grasp = false;
                 move_client->wait_for_service(100ms); // Wait for service to not pre-empt service call
                 move_client->async_send_request(req,
-                    [this](rclcpp::Client<interfaces::srv::Move>::SharedFuture future) {
-                        if (this->move_request_response(future)) {
-                            // TODO: add error handling here.
+                    [this, &item_label](rclcpp::Client<interfaces::srv::Move>::SharedFuture future) {
+                        if (!this->move_request_response(future)) {
+                            // TODO: error handle, planner will attempt to place item back down on failure.
                         }
-
-                        // add drop item request on goal move failure?
+                        item_pose_map[item_label].in_queue = false;
                     }
                 );
                 item_pose_map.erase(item_label);
             } else {
-                // TODO: more error handling.
-
                 // Allow item to be queued again on failure
                 item_pose_map[item_label].in_queue = false;
             }
@@ -190,13 +190,29 @@ bool Brain::move_request_response(rclcpp::Client<interfaces::srv::Move>::SharedF
 }
 
 
+// Publish stamped poses
 inline void Brain::publish_goal_pose(const std::string &label) {
-    pose_update_publisher->publish(goal_pose_map[label].pose);
+    if (goal_pose_map[label].calculate_conf() < 0.8) {
+        // Send cancel command when confidence is low
+        cancel_move_publisher->publish(std_msgs::msg::Empty());
+        RCLCPP_INFO(this->get_logger(), "Cancelling goal move due to low confidence.\nGoal Confidence: %f", 
+                    goal_pose_map[label].calculate_conf());
+        return;
+    }
+    pose_update_publisher->publish(goal_pose_map[label].get_pose());
 } 
 
 
 inline void Brain::publish_item_pose(const std::string &label) {
-    pose_update_publisher->publish(item_pose_map[label].pose);
+    if (std::min(item_pose_map[label].pose.calculate_conf(), 
+                 goal_pose_map[get_goal_label(label)].calculate_conf()) < 0.8) {
+        // Send cancel command when confidence is low
+        cancel_move_publisher->publish(std_msgs::msg::Empty());
+        RCLCPP_INFO(this->get_logger(), "Cancelling item move due to low confidence.\nGoal Confidence: %f\nItem Confidence: %f",
+                    goal_pose_map[get_goal_label(label)].calculate_conf(), item_pose_map[label].pose.calculate_conf());
+        return;
+    }
+    pose_update_publisher->publish(item_pose_map[label].pose.get_pose());
 }
 
 
@@ -213,7 +229,7 @@ std::string Brain::get_goal_label(const std::string &item_label) {
 }
 
 
-void Brain::send_move_request(const geometry_msgs::msg::Pose &pose) {
+void Brain::send_move_request(const geometry_msgs::msg::PoseStamped &pose) {
     auto req = std::make_shared<interfaces::srv::Move::Request>();
     req->grasp = false;
     this->timer = this->create_wall_timer(50ms,
@@ -230,6 +246,37 @@ void Brain::send_move_request(const geometry_msgs::msg::Pose &pose) {
     );
 }
    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 int test_pose_callbacks(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
@@ -278,8 +325,10 @@ int debug_main(int argc, char* argv[]) {
     pose.position.y = 0.35;
     pose.position.z = 0.17;
 
+    geometry_msgs::msg::PoseStamped p_s;
+    p_s.pose = pose;
 
-    brain->send_move_request(pose);
+    brain->send_move_request(p_s);
 
     rclcpp::spin(brain);
     rclcpp::shutdown();

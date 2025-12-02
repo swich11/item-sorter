@@ -12,6 +12,11 @@
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 
+  <build_depend>eigen3_cmake_module</build_depend>
+  <exec_depend>eigen3_cmake_module</exec_depend>
+  <build_depend>eigen3</build_depend>
+  <exec_depend>eigen3</exec_depend>
+
   <depend>rclcpp</depend>
   <depend>geometry_msgs</depend>
   <depend>interfaces</depend>
