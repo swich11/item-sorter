@@ -16,7 +16,6 @@ ObjectVisualiser::ObjectVisualiser() : Node("visualiser") {
     
     using namespace visualization_msgs::msg;
     last_marker_array = MarkerArray();
-    // TODO : adjust scale of bins and hexagons
     marker_label_map = {
         {"RedSquare", ObjectMarkerInfo{ObjectID::RedSquare, Marker::CUBE, 255.0, 0.0, 0.0, 0.05, 0.05, 0.05, false}},
         {"RedCircle", ObjectMarkerInfo{ObjectID::RedCircle, Marker::SPHERE, 255.0, 0.0, 0.0, 0.05, 0.05, 0.05, false}},
