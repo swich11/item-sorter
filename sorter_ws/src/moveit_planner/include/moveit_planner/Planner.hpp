@@ -44,7 +44,7 @@ class Planner : public rclcpp::Node {
 
         void goalPoseCallback(const geometry_msgs::msg::PoseStamped &pose);
 
-        void cancelMoveCallback(const std_msgs::msg::Empty &empty);
+        void cancelMoveCallback(const std_msgs::msg::Empty&);
 
         bool move(std::shared_ptr<interfaces::srv::Move::Response> res, bool grasp);
 
@@ -77,4 +77,5 @@ class Planner : public rclcpp::Node {
         geometry_msgs::msg::PoseStamped goal_pose;
         geometry_msgs::msg::Pose home_pose;
         bool grabbed_home_pose;
+        bool move_canceled;
 };

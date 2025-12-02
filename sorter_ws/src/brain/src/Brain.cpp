@@ -166,6 +166,9 @@ void Brain::send_move_request(const std::string &item_label) {
                         if (!this->move_request_response(future)) {
                             // TODO: error handle, planner will attempt to place item back down on failure.
                         }
+                        // TODO: Case where request is cancelled during grasp
+
+
                         item_pose_map[item_label].in_queue = false;
                     }
                 );
@@ -244,69 +247,6 @@ void Brain::send_move_request(const geometry_msgs::msg::PoseStamped &pose) {
             this->move_request_response(future);
         }
     );
-}
-   
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-int test_pose_callbacks(int argc, char* argv[]) {
-    rclcpp::init(argc, argv);
-    auto brain = std::make_shared<Brain>();
-
-    interfaces::msg::LabelledPose l_pose;
-    l_pose.colour = "orange";
-    l_pose.label = "red1";
-    l_pose.shape = "square";
-    l_pose.pose.position.x = 0.0;
-    l_pose.pose.position.x = 0.0;
-    l_pose.pose.position.x = 0.0;
-    l_pose.pose.orientation.w = 1.0;
-    l_pose.pose.orientation.x = 0.0;
-    l_pose.pose.orientation.y = 0.0;
-    l_pose.pose.orientation.z = 0.0;
-
-    interfaces::msg::LabelledPoseArray l_array;
-    l_array.header.frame_id = "camera_link";
-    // l_array.header.stamp = brain->get_clock()->now();
-
-    l_array.poses.push_back(l_pose);
-
-
-    // brain->item_topic_callback(l_array);
-    // brain->goal_topic_callback(l_array);
-
-    rclcpp::spin(brain);
-    rclcpp::shutdown();
-    return 0;
 }
 
 
