@@ -41,7 +41,7 @@ def get_ur_driver_launch():
             'robot_ip': '192.168.0.100',
             'use_fake_hardware': 'false',
             'launch_rviz': 'false',
-            'description_file': ur_with_EE_path
+            #'description_file': ur_with_EE_path
         }.items()
     )
 
@@ -66,9 +66,8 @@ def get_moveit_launch():
                 launch_arguments={
                     'robot_ip': '192.168.0.100',
                     'ur_type': 'ur5e',
-                    'launch_rviz': 'true'
-                    #,
-                    #'description_file': end_effector_path,
+                    'launch_rviz': 'true',
+                    'description_file': end_effector_path,
                 }.items()
             )
         ]
