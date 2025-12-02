@@ -24,11 +24,11 @@ def get_realsense_launch():
     )
 
 def get_ur_driver_launch():
-    # ur_with_EE_path = os.path.join(
-    #     get_package_share_directory('robot_description'),
-    #     'urdf',
-    #     'ur_with_end_effector.xacro'
-    # )
+    ur_with_EE_path = os.path.join(
+        get_package_share_directory('robot_description'),
+        'urdf',
+        'ur_with_end_effector.xacro'
+    )
 
     return IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -41,7 +41,7 @@ def get_ur_driver_launch():
             'robot_ip': '192.168.0.100',
             'use_fake_hardware': 'false',
             'launch_rviz': 'false',
-            #'decription_file': ur_with_EE_path
+            'decription_file': ur_with_EE_path
         }.items()
     )
 
@@ -59,19 +59,28 @@ def get_moveit_launch():
                 PythonLaunchDescriptionSource(
                     os.path.join(
                         get_package_share_directory('moveit_config'),
-                        'launch;,'
+                        'launch',
                         'ur_moveit.launch.py'
                     )
                 ),
                 launch_arguments={
                     'robot_ip': '192.168.0.100',
                     'ur_type': 'ur5e',
-                    'launch_rviz': 'true',
-                    'description_file': end_effector_path,
-                    'moveit_config_package': 'moveit_config',
+                    'launch_rviz': 'true'
+                    #,
+                    #'description_file': end_effector_path,
                 }.items()
             )
         ]
+    )
+
+def get_rviz_launch():
+    moveit_launch_path = os.path.join(
+        get_package_share_directory('moveit_config'), 'launch', 'ur_moveit_rviz.launch.py'
+    )
+
+    return IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(moveit_launch_path)
     )
 
 def get_moveit_planner_launch():
@@ -84,9 +93,6 @@ def get_moveit_planner_launch():
     return IncludeLaunchDescription(
         PythonLaunchDescriptionSource(moveit_planner_launch_path)
     )
-
-#def get_auxiliary_launch():
-    
 
 def generate_launch_description():
     launch_description = [
