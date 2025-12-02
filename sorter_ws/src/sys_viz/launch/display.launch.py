@@ -41,7 +41,7 @@ def get_ur_driver_launch():
             'robot_ip': '192.168.0.100',
             'use_fake_hardware': 'false',
             'launch_rviz': 'false',
-            'decription_file': ur_with_EE_path
+            'description_file': ur_with_EE_path
         }.items()
     )
 
@@ -72,15 +72,6 @@ def get_moveit_launch():
                 }.items()
             )
         ]
-    )
-
-def get_rviz_launch():
-    moveit_launch_path = os.path.join(
-        get_package_share_directory('moveit_config'), 'launch', 'ur_moveit_rviz.launch.py'
-    )
-
-    return IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(moveit_launch_path)
     )
 
 def get_moveit_planner_launch():
