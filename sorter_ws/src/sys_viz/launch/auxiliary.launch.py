@@ -23,18 +23,17 @@ def generate_launch_description():
         executable="transform_node",
         name="transform_node",
     )
-    #,
-    # object_detector_node = Node(
-    #     package="object_detect",
-    #     executable="object_detector",
-    #     name="object_detect",
-    # )
+    item_detector_node = Node(
+        package="perception",
+        executable="ItemDetector",
+        name="ItemDetector",
+    )
 
 
 
     return launch.LaunchDescription([
         brain_node,
         arduino_bridge_node,
-        transform_node
-        #object_detector_node
+        transform_node,
+        item_detector_node
     ])

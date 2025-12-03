@@ -89,7 +89,12 @@
 				<mesh filename="package://robot_description/meshes/slider_rod.stl" scale="0.001 0.001 0.001"/>
 			</geometry>
 			<material name='dark_grey'/>
-		</visual>	
+		</visual>
+		<collision>
+			<geometry>
+				<mesh filename="package://robot_description/meshes/gripper_finger_left.stl" scale="0.001 0.001 0.001"/>
+			</geometry>
+		</collision>	
 	</link>	
 
 	<!-- slider rod lower -->
@@ -99,7 +104,12 @@
 				<mesh filename="package://robot_description/meshes/slider_rod.stl" scale="0.001 0.001 0.001"/>
 			</geometry>
 			<material name='dark_grey'/>
-		</visual>	
+		</visual>
+		<collision>
+			<geometry>
+				<mesh filename="package://robot_description/meshes/gripper_finger_left.stl" scale="0.001 0.001 0.001"/>
+			</geometry>
+		</collision>	
 	</link>	
 
 
