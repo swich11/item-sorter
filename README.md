@@ -1,4 +1,88 @@
-# UR5e Item Picker
+# UR5e Item Sorter
+
+# Table of Contents
+-# Include a Table of Contents at the start of your README (this can be auto-generated). 
+
+# Project Overview
+
+## Customer Problem
+
+## Robot Functionality
+
+## Demo Video
+
+# System Architecture
+
+## rqt Graph
+
+## Closed-Loop System Behaviour
+
+## Custom messages
+
+# Technical Components
+
+## Computer Vision
+
+## Custom End-Effector
+
+## System Visualisation
+
+## Closed-Loop Operation
+
+# Installation and Setup
+
+## Hardware setup
+
+### UR5e 
+
+### RealSense Camera
+
+### Teensy & End Effector
+
+## Dependencies
+
+## System Variables and Calibration
+
+# Running the System
+
+## Launch commands
+
+## Expected outputs
+
+## Common Troubleshooting
+
+# Results and Demonstration
+
+## Iterations
+
+## Final Result (inc. quantitative result)
+
+## Compare against design goals
+
+# Discussion and Future Work
+
+## Development Challenges
+
+## Novelty of Existing Solution
+
+## Directions for Future Work
+
+# Contributors and Roles
+## Julian Britton
+## Bryson Chen
+## Matthew Viegas
+
+# Repository Structure
+
+## sorter_ws
+### src
+## unused_pkgs
+### object_detect
+## ur_gazebo
+## ws_moveit2
+
+# References and Acknowledgements
+
 Item Picker for the UR5e specifically built for use in the MTRN4231 labs.
 
 **Moveit Setup Instructions**
