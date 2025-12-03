@@ -104,20 +104,6 @@ Run robot calibration before running anything else:
 <pre>ros2 launch ur_calibration calibration_correction.launch.py \
 robot_ip:=&lt;robot_ip&gt; target_filename:="${HOME}/my_robot_calibration.yaml"</pre>
 
-## **Running in ROS**
-A setup script is provided in **setup.bash**. To use it run: <pre>source setup.bash</pre>
-
-
-## **Running in Simulation**
-Simulation uses gazebo and is sourced from the directory https://github.com/UniversalRobots/Universal_Robots_ROS2_Gazebo_Simulation
-To install dependencies: <pre>cd ur_gazebo/src
-rosdep update && rosdep install --ignore-src --from-paths . -y</pre>
-Then build:
-<pre>colcon build --symlink-install</pre>
-This allows us to launch with the provided launch file to test:
-<pre>ros2 launch ur_simulation_gazebo ur_sim_moveit.launch.py</pre> or to launch without the moveit plugin
-<pre>ros2 launch ur_simulation_gazebo ur_sim_control.launch.py</pre>
-
 ## Hardware setup
 
 ### UR5e 
@@ -132,6 +118,19 @@ This allows us to launch with the provided launch file to test:
 
 # Running the System
 
+## **Running in ROS**
+A setup script is provided in **setup.bash**. To use it run: <pre>source setup.bash</pre>
+
+## **Running in Simulation**
+Simulation uses gazebo and is sourced from the directory https://github.com/UniversalRobots/Universal_Robots_ROS2_Gazebo_Simulation
+To install dependencies: <pre>cd ur_gazebo/src
+rosdep update && rosdep install --ignore-src --from-paths . -y</pre>
+Then build:
+<pre>colcon build --symlink-install</pre>
+This allows us to launch with the provided launch file to test:
+<pre>ros2 launch ur_simulation_gazebo ur_sim_moveit.launch.py</pre> or to launch without the moveit plugin
+<pre>ros2 launch ur_simulation_gazebo ur_sim_control.launch.py</pre>
+
 ## Launch commands
 
 ## Expected outputs
@@ -140,19 +139,36 @@ This allows us to launch with the provided launch file to test:
 
 # Results and Demonstration
 
-## Iterations
-
 ## Final Result (inc. quantitative result)
 
 ## Compare against design goals
 
 # Discussion and Future Work
+## Iterations and Development Challenges
+### Object Detection
+The computer vision component of our project underwent various distinct iterations with various methods before we settled on a YOLO-based solution.
 
-## Development Challenges
+In early designs, it was predicted that colour thresholding and contour approximations via opencv would be sufficient to distinctly identify and classify objects. While testing with external data showed this was possible, when testing in the workspace this approach failed. While thresholding was able to accurately find objects, contour approximation was not able to distinguish faces sufficiently to classify shapes. The 2nd iteration replaced the opencv contour approximation with a pointcloud approximation but this failed for similar reasons unable to accurately model the object to infer information.
+
+The next solution was to utilise unique Aruco markers for each type of object. This solution also allowed grabbing a rotational orientation output directly from the Aruco marker. This solution worked fairly consistently with the bins however did fail to detect in certain positions. It was worse however for objects whose markers had to be even smaller and could not consistently be located especially if the markers could not be kept flat, which was a painful impossiblity for the curved shapes. While simply using colour masking for objects and keeping Aruco markers simply for the bins was considred, it was ultimately rejected as the goal of the project was to be able to sort by shape and colour.
+
+This is how we landed on a machine learning based solution. While it did not provide the easy access to orientation that Aruco markers provided, it gave consistent detections all the time. And this solution would be able to function for most manners of potential objects designs including more complex ones then current simple shapes.
+
+### MoveIt
 
 ## Novelty of Existing Solution
 
 ## Directions for Future Work
+### YOLO model
+Our model used in perception was trained on a limited dataset. Given more time and resources, this can be trained to become more robust and reliable. 
+
+Future work on this model, also becomes a necessity should any additional types of objects or bins want to be added for use with this system.
+
+### Gripper
+
+### Visualisation
+
+### Closed-Loop Behaviour
 
 # Contributors and Roles
 ## Julian Britton
@@ -191,6 +207,10 @@ Old perception package which used Aruco markers, colour thresholding and size ap
 ## ws_moveit2
 
 # References and Acknowledgements
+- UR5e model and gazebo
+- MoveIt
+- Rviz2
+- Realsense package
 
 
 
