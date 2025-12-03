@@ -31,10 +31,45 @@ The simplified workflow will consist of:
 ## Closed-Loop System Behaviour
 
 ## Custom messages and services
-### LabelledPose.msg and LabelledPoseArray.msg
+### LabelledPose.msg
+Message type to represent individual detected objects and their pose. Used in brain, perception and visualisation.
+<pre>
+string label
+string colour
+string shape
+geometry_msgs/Pose pose
+</pre>
+### LabelledPoseArray.msg
+Message type to represent a full set of LabelledPose messages. Used in brain, perception and visualisation.
+<pre>
+std_msgs/Header header
+LabelledPose[] poses
+</pre>
+
 ### Move.srv
+<pre>
+bool grasp
+geometry_msgs/Pose pose
+---
+bool success
+string message
+</pre>
 ### TransformLookup.srv
+<pre>
+geometry_msgs/PoseStamped pose
+string to_link
+---
+bool success
+geometry_msgs/PoseStamped pose
+</pre>
 ### TransformLookupArray.srv
+<pre>
+geometry_msgs/PoseStamped[] poses
+string to_link
+---
+bool success
+geometry_msgs/PoseStamped[] poses
+</pre>
 
 # Technical Components
 ## Computer Vision
