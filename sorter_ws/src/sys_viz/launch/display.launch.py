@@ -6,6 +6,7 @@ from launch_ros.actions import Node
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 
@@ -40,10 +41,13 @@ def get_ur_driver_launch():
             'ur_type': 'ur5e',
             'robot_ip': '192.168.0.100',
             'use_fake_hardware': 'false',
+            'kinematics_params_file': "/home/julian/my_robot_calibration.yaml",
             'launch_rviz': 'false',
-            #'description_file': ur_with_EE_path
+            # 'description_file': ur_with_EE_path,
         }.items()
     )
+
+
 
 def get_moveit_launch():
     end_effector_path = os.path.join(
@@ -58,7 +62,7 @@ def get_moveit_launch():
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
                     os.path.join(
-                        get_package_share_directory('moveit_config'),
+                        get_package_share_directory('ur_moveit_config'),
                         'launch',
                         'ur_moveit.launch.py'
                     )
@@ -72,6 +76,59 @@ def get_moveit_launch():
             )
         ]
     )
+
+
+
+def get_ur_sim_moveit_launch():
+    end_effector_path = os.path.join(
+        get_package_share_directory('robot_description'),
+        'urdf',
+        'ur_with_end_effector.xacro'
+    )
+
+    return TimerAction(
+        period=10.0,
+        actions=[
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    os.path.join(
+                        get_package_share_directory('ur_simulation_gazebo'),
+                        'launch',
+                        'ur_sim_moveit.launch.py'
+                    )
+                ),
+                launch_arguments={
+                    'ur_type': 'ur5e',
+                    'launch_rviz': 'true',
+                    # 'description_package': 'robot_description',
+                    'description_file': end_effector_path,
+                }.items()
+            )
+        ]
+    )
+
+
+def get_ur_sim_launch():
+    description_file = os.path.join(
+        get_package_share_directory('robot_description'),
+        'urdf',
+        'ur_with_end_effector.xacro'
+    )
+    return IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory('ur_simulation_gazebo'),'launch','ur_sim_control.launch.py'
+            )
+        ),
+
+        
+        launch_arguments={
+            'ur_type': 'ur5e',
+            'launch_rviz': 'false',
+            # 'description_file': description_file,
+        }.items()
+    )
+
 
 def get_moveit_planner_launch():
     moveit_planner_launch_path = os.path.join(
@@ -88,7 +145,9 @@ def generate_launch_description():
     launch_description = [
         get_realsense_launch(),
         get_ur_driver_launch(),
+        # get_ur_sim_launch(),
+        # get_ur_sim_moveit_launch(),
         get_moveit_launch(),
-        get_moveit_planner_launch(),
+        # get_moveit_planner_launch(),
     ]
     return LaunchDescription(launch_description)

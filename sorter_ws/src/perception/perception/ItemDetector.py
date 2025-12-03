@@ -115,6 +115,23 @@ class ItemDetector(Node):
 
         if (self.depth_image is None):
             return
+        
+        conf_dict = {
+            "RedHexagon": (0.0, None),
+            "RedSquare": (0.0, None),
+            "RedCircle": (0.0, None),
+            "CircleBucket": (0.0, None),
+
+            "GreenHexagon": (0.0, None),
+            "GreenSquare": (0.0, None),
+            "GreenCircle": (0.0, None),
+            "HexagonBucket": (0.0, None),
+
+            "BlueHexagon": (0.0, None),
+            "BlueSquare": (0.0, None),
+            "BlueCircle": (0.0, None),
+            "SquareBucket": (0.0, None),
+        }
 
         # HSV image, we mask for segmentation
         hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -145,11 +162,15 @@ class ItemDetector(Node):
                         l_pose.pose.position.x = np.average((x1 + us - self.ppx) * Z / self.fx) / 1000.0
                         l_pose.pose.position.y = np.average((y1 + vs - self.ppy) * Z / self.fy) / 1000.0
                         l_pose.pose.position.z = np.average(Z) / 1000.0
-                        l_pose.pose.orientation.w = 0.924
-                        l_pose.pose.orientation.x = -0.383
+                        l_pose.pose.orientation.w = 0.383
+                        l_pose.pose.orientation.x = 0.924
                         l_pose.pose.orientation.y = 0.0
                         l_pose.pose.orientation.z = 0.0
-                        l_pose_array.poses.append(l_pose)
+                        if float(boxes.conf[i]) > conf_dict[l_pose.label][0]:
+                            conf_dict[l_pose.label] = (float(boxes.conf[i]), l_pose) # type: ignore
+        for item in conf_dict.values():
+            if item[1] is not None:
+                l_pose_array.poses.append(item[1])
         self.object_pub.publish(l_pose_array) # just publish all objects in one array, this can be filtered by the brain
 
 

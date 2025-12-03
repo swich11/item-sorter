@@ -39,7 +39,9 @@ Planner::Planner() : Node("planner") {
     setPathConstraints();
 
     grabbed_home_pose = false;
+    move_canceled = false;
     goal_pose_subscription = this->create_subscription<geometry_msgs::msg::PoseStamped>("/brain/move/pose", 10, std::bind(&Planner::goalPoseCallback, this, _1));
+    cancel_move_subscription = this->create_subscription<std_msgs::msg::Empty>("/brain/move/cancel", 10, std::bind(&Planner::cancelMoveCallback, this, _1));
     move_server = this->create_service<interfaces::srv::Move>("/moveit_planner/move", std::bind(&Planner::moveServiceCallback, this, _1, _2));
     arduino_pub = this->create_publisher<std_msgs::msg::String>("/arduino_cmds", 10);   // initialize publisher to send commands to Arduino
     RCLCPP_INFO(this->get_logger(), "Planner Launched. Ready for Commands");
@@ -80,6 +82,13 @@ bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res, bool gr
     moveit::planning_interface::MoveGroupInterface::Plan plan;
     geometry_msgs::msg::Pose tracked_goal = home_pose; // Anything different to the goal_pose works
     do {
+        if (move_canceled) {
+            // Move canceled by brain, don't continue
+            move_group_interface->stop();
+            res->message = "Planning was cancelled during move.";
+            res->success = false;
+            return false;
+        }
         if (!isPoseClose(tracked_goal, goal_pose.pose)) {
             // Change goal when the object moves
             tracked_goal = goal_pose.pose;
@@ -110,7 +119,7 @@ bool Planner::move(std::shared_ptr<interfaces::srv::Move::Response> res, bool gr
     // attempt grasp
     auto grab_pose = goal_pose.pose;
     grab_pose.position.z = GRAB_OFFSET;
-    move_group_interface->setPoseTarget(goal_pose.pose);
+    move_group_interface->setPoseTarget(grab_pose);
     move_group_interface->stop();
     auto ret = move_group_interface->plan(plan);
     if (ret != moveit::core::MoveItErrorCode::SUCCESS) {
@@ -230,6 +239,11 @@ void Planner::goalPoseCallback(const geometry_msgs::msg::PoseStamped &pose) {
     auto g_pose = pose;
     g_pose.pose.position.z += GRIPPER_HEIGHT + GRIPPER_OFFSET; // 
     goal_pose = g_pose;
+}
+
+
+void Planner::cancelMoveCallback(const std_msgs::msg::Empty&) {
+    // Cancel move call at some point
 }
 
 

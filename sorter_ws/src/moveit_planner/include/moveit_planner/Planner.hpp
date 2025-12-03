@@ -15,6 +15,7 @@
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 #include <moveit_msgs/msg/planning_scene.h>
 #include <geometry_msgs/msg/pose.hpp>
+#include <std_msgs/msg/empty.hpp>
 
 #include "interfaces/srv/move.hpp"
 
@@ -43,6 +44,8 @@ class Planner : public rclcpp::Node {
 
         void goalPoseCallback(const geometry_msgs::msg::PoseStamped &pose);
 
+        void cancelMoveCallback(const std_msgs::msg::Empty&);
+
         bool move(std::shared_ptr<interfaces::srv::Move::Response> res, bool grasp);
 
         void asyncMoveHome();
@@ -67,10 +70,12 @@ class Planner : public rclcpp::Node {
         std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_interface;
 
         rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pose_subscription;
+        rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr cancel_move_subscription;
         rclcpp::Service<interfaces::srv::Move>::SharedPtr move_server;
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr arduino_pub;    // publisher to send commands to Arduino
         
         geometry_msgs::msg::PoseStamped goal_pose;
         geometry_msgs::msg::Pose home_pose;
         bool grabbed_home_pose;
+        bool move_canceled;
 };
