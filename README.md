@@ -6,10 +6,22 @@
 # Project Overview
 
 ## Customer Problem
+A small-scale local manufacturing client requires a robotic solution to automate the sorting and organisation of small, packaged components along an assembly line. Currently, workers manually identify, pick, and place these components into designated trays based on visual characteristics such as colour and shape. The manual process of sorting is bottlenecking the assembly line with insufficient output and excessive errors, as well.
 
 ## Robot Functionality
+Our product is an UR5e robotic system that autonomously identifies, picks, and sorts objects from a conveyor or workspace into correct storage bins, based on visual classification. This system aims to improve throughput, reduce labour fatigue, and increase sorting accuracy while maintaining safe operation within the defined workspace.
+
+The system is designed to operate in a semi-structured environment with objects on a relatively flat surface. A fixed Intel Realsense (or alternative RGBD) camera will provide a real-time view of the workspace. 
+
+The simplified workflow will consist of: 
+- Using a trained machine learning model, the RGBD camera will detect, and classify objects and bins on the work surface. 
+- Determining the 3D pose of each object detected using calibrated depth camera points
+- Plan and execute pick-and-place trajectories using MoveIt
+- Move to and grip each object using the custom servo-actuated gripper end-effector
+- Move to and drop objects into the corresponding sorting bin
 
 ## Demo Video
+(OneDrive Link?)
 
 # System Architecture
 
@@ -17,7 +29,11 @@
 
 ## Closed-Loop System Behaviour
 
-## Custom messages
+## Custom messages and services
+### LabelledPose.msg and LabelledPoseArray.msg
+### Move.srv
+### TransformLookup.srv
+### TransformLookupArray.srv
 
 # Technical Components
 
