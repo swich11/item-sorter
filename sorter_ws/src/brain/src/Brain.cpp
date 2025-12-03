@@ -111,17 +111,21 @@ void Brain::update_item_map(const interfaces::msg::LabelledPoseArray &msg) {
         // RCLCPP_INFO(this->get_logger(), "%s conf: %f", item_pose.label.c_str(),
         //                                         item_pose_map[item_pose.label].pose.calculate_conf());
 
-        auto &goal_pose = goal_pose_map.at(get_goal_label(item_pose.label));
-        if (!item_pose_map[item_pose.label].in_queue && 
-            goal_pose.calculate_conf() > 0.8 &&
-            item_pose_map[item_pose.label].pose.calculate_conf() > 0.8) {
-            // enqueue this
-            item_pose_map[item_pose.label].in_queue = true;
-            item_queue.push(item_pose.label);
-            item_queue_sem.release();
-        } else {
-            // move dispatcher checks if item is still in queue using this
-            item_pose_map[item_pose.label].in_queue = false;
+        try {
+            auto &goal_pose = goal_pose_map.at(get_goal_label(item_pose.label));
+            if (!item_pose_map[item_pose.label].in_queue && 
+                goal_pose.calculate_conf() > 0.8 &&
+                item_pose_map[item_pose.label].pose.calculate_conf() > 0.8) {
+                    // enqueue this
+                    item_pose_map[item_pose.label].in_queue = true;
+                    item_queue.push(item_pose.label);
+                    item_queue_sem.release();
+                } else {
+                    // move dispatcher checks if item is still in queue using this
+                    item_pose_map[item_pose.label].in_queue = false;
+                }
+        } catch (std::out_of_range&) {
+            continue;
         }
     }
 }

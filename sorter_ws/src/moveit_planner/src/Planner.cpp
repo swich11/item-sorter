@@ -53,14 +53,14 @@ void Planner::moveServiceCallback(std::shared_ptr<interfaces::srv::Move::Request
     if (!grabbed_home_pose) {
         // Initialise the home pose
         home_pose = move_group_interface->getCurrentPose().pose;
+        home_pose.orientation.x = sqrt(2) / 2.0;
+        home_pose.orientation.y = -sqrt(2) / 2.0;
+        home_pose.orientation.z = 0.0;
+        home_pose.orientation.w = 0.0;
         RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f, w: %f", home_pose.orientation.x, 
                                                                       home_pose.orientation.y,
                                                                       home_pose.orientation.z,
                                                                       home_pose.orientation.w);
-        // home_pose.orientation.x = sqrt(2) / 2.0;
-        // home_pose.orientation.y = -sqrt(2) / 2.0;
-        // home_pose.orientation.z = 0.0;
-        // home_pose.orientation.w = 0.0;
         grabbed_home_pose = true;
         
         // For now unless we add pose rotation
@@ -179,29 +179,29 @@ void Planner::ungrasp() {
 moveit_msgs::msg::Constraints Planner::setPathConstraints() {
     // Lock wrist 2 link to simplify path planning
     moveit_msgs::msg::Constraints constraints;
-    moveit_msgs::msg::JointConstraint wrist_2_constraint;
-    wrist_2_constraint.joint_name = "wrist_2_joint";
-    wrist_2_constraint.position = -M_PI / 2;
-    wrist_2_constraint.tolerance_above = M_PI / 4.0;
-    wrist_2_constraint.tolerance_below = M_PI / 4.0;
-    wrist_2_constraint.weight = 1.0;
+    // moveit_msgs::msg::JointConstraint wrist_2_constraint;
+    // wrist_2_constraint.joint_name = "wrist_2_joint";
+    // wrist_2_constraint.position = -M_PI / 2;
+    // wrist_2_constraint.tolerance_above = M_PI / 4.0;
+    // wrist_2_constraint.tolerance_below = M_PI / 4.0;
+    // wrist_2_constraint.weight = 1.0;
 
-    moveit_msgs::msg::JointConstraint wrist_3_constraint;
-    wrist_3_constraint.joint_name = "wrist_1_joint";
-    wrist_3_constraint.position = -3 * M_PI / 4.0;
-    wrist_3_constraint.tolerance_above = M_PI / 4.0;
-    wrist_3_constraint.tolerance_below = M_PI / 4.0;
-    wrist_3_constraint.weight = 1.0;
+    // moveit_msgs::msg::JointConstraint wrist_3_constraint;
+    // wrist_3_constraint.joint_name = "wrist_1_joint";
+    // wrist_3_constraint.position = -3 * M_PI / 4.0;
+    // wrist_3_constraint.tolerance_above = M_PI / 4.0;
+    // wrist_3_constraint.tolerance_below = M_PI / 4.0;
+    // wrist_3_constraint.weight = 1.0;
 
     moveit_msgs::msg::JointConstraint elbow_constraint;
     elbow_constraint.joint_name = "elbow_joint";
     elbow_constraint.position = M_PI / 2.0;
     elbow_constraint.tolerance_above = M_PI / 2.0;
-    elbow_constraint.tolerance_below = 0.0;
+    elbow_constraint.tolerance_below = 0.2;
     elbow_constraint.weight = 1.0;
 
-    constraints.joint_constraints.push_back(wrist_2_constraint);
-    constraints.joint_constraints.push_back(wrist_3_constraint);
+    // constraints.joint_constraints.push_back(wrist_2_constraint);
+    // constraints.joint_constraints.push_back(wrist_3_constraint);
     constraints.joint_constraints.push_back(elbow_constraint);
     move_group_interface->setPathConstraints(constraints);
     return constraints;
@@ -210,15 +210,15 @@ moveit_msgs::msg::Constraints Planner::setPathConstraints() {
 
 moveit_msgs::msg::Constraints Planner::setGripPathConstraints() {
     auto constraints = setPathConstraints();
-    auto joint_values = move_group_interface->getCurrentJointValues();
-    moveit_msgs::msg::JointConstraint wrist_3_constraint;
-    wrist_3_constraint.joint_name = "wrist_3_joint"; 
-    wrist_3_constraint.position = joint_values[5]; // wrist_3_joint index
-    wrist_3_constraint.tolerance_above = 0.1;
-    wrist_3_constraint.tolerance_below = 0.1;
-    wrist_3_constraint.weight = 1.0;
-    constraints.joint_constraints.push_back(wrist_3_constraint);
-    move_group_interface->setPathConstraints(constraints);
+    // auto joint_values = move_group_interface->getCurrentJointValues();
+    // moveit_msgs::msg::JointConstraint wrist_3_constraint;
+    // wrist_3_constraint.joint_name = "wrist_3_joint"; 
+    // wrist_3_constraint.position = joint_values[5]; // wrist_3_joint index
+    // wrist_3_constraint.tolerance_above = 0.1;
+    // wrist_3_constraint.tolerance_below = 0.1;
+    // wrist_3_constraint.weight = 1.0;
+    // constraints.joint_constraints.push_back(wrist_3_constraint);
+    // move_group_interface->setPathConstraints(constraints);
     return constraints;
 }
 

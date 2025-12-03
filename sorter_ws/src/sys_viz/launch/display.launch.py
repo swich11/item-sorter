@@ -20,7 +20,8 @@ def get_realsense_launch():
         launch_arguments={
             'align_depth.enable': 'true',
             'enable_color': 'true',
-            'enable_depth': 'true'
+            'enable_depth': 'true',
+            'pointcloud.enable': 'true'
         }.items()
     )
 
@@ -148,6 +149,6 @@ def generate_launch_description():
         # get_ur_sim_launch(),
         # get_ur_sim_moveit_launch(),
         get_moveit_launch(),
-        get_moveit_planner_launch(),
+        # get_moveit_planner_launch(),
     ]
     return LaunchDescription(launch_description)
