@@ -37,12 +37,40 @@ The simplified workflow will consist of:
 ### TransformLookupArray.srv
 
 # Technical Components
-
 ## Computer Vision
+The vision pipeline begins with a pre-existing realsense camera node which continously publishes the colour image, aligned depth image, intriniscs from the camera, as well as some helpful transforms.
+
+The perception node subscribes to both image topics and activates the main logic as a callback whenever receiving a new colour image. When recieved the node;
+- Runs the colour image through our custom YOLO model to find objects within view. 
+- Annotate a copy of the original image with the model output for visualisation.
+- For each detection, we check its confidence is above the expected threshold.
+- Find the object's exact presence in the bounding box using colour thresholding with the detected objects expected tones.
+- Use this colour mask, in combination with the corresponding points in the depth image, to transform all points in the detection into 3d space from the camera perspective.
+- Take an average of all these points to output a centroid of the object in 3d space.
+- ~~The orientation of the object is approximated via taking a sample of points across the object, and producing a plane approximation of them which can output yaw, pitch, roll to be converted into quaternion.~~ 
+- If the object is meant to be unique (i.e. a bin or tray), we keep track of the observation with the highest confidence to ensure only this one is published in final message.
+- Build custom message type LabelledPoseArray with all processed observations and publish as 'camera/objects/labelled_pose_array'
+
+The 'camera/objects/labelled_pose_array' is subscribed to by the brain and visualiser nodes. In the brain the message is;
+- Processed with all poses being transformed from the camera frame to the base_link frame. 
+- All objects are seperated out into objects to be sorted and bins, and matched via shape.
+- All objects to be sorted are then finally added to a queue
+
+In the visualiser node, the message is taken in and transformed into a MarkerArray with custom stl meshes describing each tpye of observable object.
 
 ## Custom End-Effector
+[provide photos/renders, assembly details, engineering drawings, control overview and integration details.]
 
 ## System Visualisation
+The system uses Rviz2 for visualisation ensuring that any users are able to clearly observe the state of the workspace and the robot. Visualised in our custom Rviz config are:
+- The UR5e robot
+- Custom End-effector attached to UR5e wrist. Visually displays whether the clamp is open or closed.
+- Workspace Surface and other safety planes visualised as collision objects.
+- RealSense Camera visualised via its transform
+- The camera colour image with machine learning model output displayed, including bounding boxes, classifications and confidences for each detection. 
+- All objects and buckets visualised in the 3d space via custom markers utilising stl meshes.
+
+[Include pic of final RViz Config]
 
 ## Closed-Loop Operation
 
