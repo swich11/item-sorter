@@ -3,6 +3,8 @@
 #include <chrono>
 #include <functional>
 #include <string>
+#include <mutex>
+#include <condition_variable>
 #include <cmath>
 #include <tf2/LinearMath/Quaternion.hpp>
 #include <tf2/LinearMath/Vector3.hpp>
@@ -46,7 +48,7 @@ class Planner : public rclcpp::Node {
 
         void cancelMoveCallback(const std_msgs::msg::Empty&);
 
-        bool move(std::shared_ptr<interfaces::srv::Move::Response> res, bool grasp);
+        bool move(std::shared_ptr<interfaces::srv::Move::Response> res, bool grasp, const geometry_msgs::msg::Pose &goal);
 
         void asyncMoveHome();
 
@@ -54,7 +56,9 @@ class Planner : public rclcpp::Node {
 
         void ungrasp();
 
-        void setPathConstraints();
+        moveit_msgs::msg::Constraints setPathConstraints();
+
+        moveit_msgs::msg::Constraints setGripPathConstraints();
 
         bool isPoseClose(const geometry_msgs::msg::Pose &a,
                          const geometry_msgs::msg::Pose &b);
@@ -78,4 +82,8 @@ class Planner : public rclcpp::Node {
         geometry_msgs::msg::Pose home_pose;
         bool grabbed_home_pose;
         bool move_canceled;
+
+        std::mutex goal_pose_mutex;
+        std::condition_variable goal_pose_cv;
+
 };

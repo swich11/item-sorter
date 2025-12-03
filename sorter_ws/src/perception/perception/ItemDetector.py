@@ -170,7 +170,7 @@ class ItemDetector(Node):
                             conf_dict[l_pose.label] = (float(boxes.conf[i]), l_pose) # type: ignore
         for item in conf_dict.values():
             if item[1] is not None:
-                l_pose_array.poses.append(item[1])
+                l_pose_array.poses.append(item[1]) # type: ignore
         self.object_pub.publish(l_pose_array) # just publish all objects in one array, this can be filtered by the brain
 
 

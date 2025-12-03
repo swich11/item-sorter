@@ -19,6 +19,7 @@ Brain::Brain() : Node("brain") {
     );
     move_call_thread = std::thread(&Brain::spin_wait_for_items, this);
     running = true;
+    moving = false;
 
     RCLCPP_INFO(this->get_logger(), "Brain Node Started.");
 }
@@ -51,10 +52,10 @@ void Brain::transform_labelled_pose_array(const interfaces::msg::LabelledPoseArr
             return pose;
         }
     );
-    req->to_link = "tool0";
-    RCLCPP_INFO(this->get_logger(), "sending transform request.");
+    req->to_link = "base_link";
+    // RCLCPP_INFO(this->get_logger(), "sending transform request.");
     transform_client->async_send_request(req, 
-        [this, f_update_map, &msg](rclcpp::Client<interfaces::srv::TransformLookupArray>::SharedFuture future) {
+        [this, f_update_map, msg](rclcpp::Client<interfaces::srv::TransformLookupArray>::SharedFuture future) {
             auto res = future.get();
             if (!res->success) {
                 RCLCPP_INFO(this->get_logger(), "Transform lookup failed.");
@@ -68,9 +69,9 @@ void Brain::transform_labelled_pose_array(const interfaces::msg::LabelledPoseArr
                 interfaces::msg::LabelledPose pose = msg.poses[i];
                 pose.pose = res->poses[i].pose;
                 tf_msg.poses.push_back(pose);
-                RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f", tf_msg.poses[i].pose.position.x,
-                                                                    tf_msg.poses[i].pose.position.y,
-                                                                    tf_msg.poses[i].pose.position.z);
+                // RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f", tf_msg.poses[i].pose.position.x,
+                //                                                     tf_msg.poses[i].pose.position.y,
+                //                                                     tf_msg.poses[i].pose.position.z);
             }
             // TODO: filter poses that are not in robot range.
             // Do update step
@@ -98,6 +99,8 @@ void Brain::update_item_map(const interfaces::msg::LabelledPoseArray &msg) {
         pose_stamped.header = msg.header;
         pose_stamped.pose = goal_pose.pose;
         goal_pose_map[goal_pose.label].update_pose(pose_stamped);
+        // RCLCPP_INFO(this->get_logger(), "%s conf: %f", goal_pose.label.c_str(), 
+        //                                             goal_pose_map[goal_pose.label].calculate_conf());
     }
 
     for (auto item_pose : item_poses.poses) {
@@ -105,6 +108,8 @@ void Brain::update_item_map(const interfaces::msg::LabelledPoseArray &msg) {
         pose_stamped.header = msg.header;
         pose_stamped.pose = item_pose.pose;
         item_pose_map[item_pose.label].pose.update_pose(pose_stamped);
+        // RCLCPP_INFO(this->get_logger(), "%s conf: %f", item_pose.label.c_str(),
+        //                                         item_pose_map[item_pose.label].pose.calculate_conf());
 
         auto &goal_pose = goal_pose_map.at(get_goal_label(item_pose.label));
         if (!item_pose_map[item_pose.label].in_queue && 
@@ -128,11 +133,15 @@ void Brain::spin_wait_for_items() {
         if (!this->running) {
             break;
         }
+        if (this->moving) {
+            continue;
+        }
         item_queue_sem.acquire();
-        RCLCPP_INFO(this->get_logger(), "Waiting for item semaphore.");
+        // RCLCPP_INFO(this->get_logger(), "Waiting for item semaphore.");
         auto item_label = item_queue.front();
         if (item_pose_map[item_label].in_queue) {
             // only send request if the item is actually in the queue
+            this->moving = true;
             send_move_request(item_label);
         }
         item_queue.pop();
@@ -146,6 +155,7 @@ void Brain::send_move_request(const std::string &item_label) {
     this->timer = this->create_wall_timer(50ms, 
         std::function<void()>(std::bind(&Brain::publish_item_pose, this, std::cref(item_label))));
     RCLCPP_INFO(this->get_logger(), "Sending Move Request %s", item_label.c_str());
+    req->pose = item_pose_map[item_label].pose.get_pose().pose;
     
     // Sends a request to the moveit planner which performs moves continuously.
     // the moveit client will cancel if it can no longer see the object
@@ -156,10 +166,13 @@ void Brain::send_move_request(const std::string &item_label) {
         [this, &item_label, &req](rclcpp::Client<interfaces::srv::Move>::SharedFuture future) {
             if (this->move_request_response(future)) {
                 // Send goal as request now
+                rclcpp::sleep_for(1s);
+                RCLCPP_INFO(this->get_logger(), "Item move request completed successfully. Sending Goal Pose.");
                 this->timer = this->create_wall_timer(50ms,
                     std::function<void()>(std::bind(&Brain::publish_goal_pose, this, get_goal_label(item_label)))
                 );
                 req->grasp = false;
+                req->pose = goal_pose_map[get_goal_label(item_label)].get_pose().pose;
                 move_client->wait_for_service(100ms); // Wait for service to not pre-empt service call
                 move_client->async_send_request(req,
                     [this, &item_label](rclcpp::Client<interfaces::srv::Move>::SharedFuture future) {
@@ -167,14 +180,17 @@ void Brain::send_move_request(const std::string &item_label) {
                             // TODO: error handle, planner will attempt to place item back down on failure.
                         }
                         // TODO: Case where request is cancelled during grasp
-
-
+                        
+                        RCLCPP_INFO(this->get_logger(), "Goal move request completed successfully :).");
+                        rclcpp::sleep_for(1s);
+                        this->moving = false;
                         item_pose_map[item_label].in_queue = false;
                     }
                 );
                 item_pose_map.erase(item_label);
             } else {
                 // Allow item to be queued again on failure
+                this->moving = false;
                 item_pose_map[item_label].in_queue = false;
             }
         }

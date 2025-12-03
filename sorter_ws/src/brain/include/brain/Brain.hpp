@@ -189,6 +189,7 @@ public:
 
 private:
     bool running;
+    bool moving;
     Semaphore item_queue_sem{0};
     std::thread move_call_thread;
     std::queue<std::string> item_queue;
