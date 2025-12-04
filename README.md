@@ -207,7 +207,7 @@ Our model used in perception was trained on a limited dataset. Given more time a
 Future work on this model, also becomes a necessity should any additional types of objects or bins want to be added for use with this system.
 
 ### Gripper
-
+The gripper in its current form has significant room for improvement, despite working reliably. While all components were 3D printed at 10% infill for durability, the inherent limitations of FDM printing such as imprecise hole tolerances and rough surface finishes, made assembly challenging. Several parts required manual drilling and sanding to achieve smooth travel along the guide rods. Although the jaws include grooved contact surfaces, they do not consistently achieve a secure grasp, so adding a higher-friction material such as rubber is planned to improve tactility. Additionally, the interface between the jaws and the guide rods can be refined to reduce friction and improve sliding performance, leading to more reliable and repeatable motion.
 ### Visualisation
 
 ### Closed-Loop Behaviour
@@ -215,6 +215,7 @@ Future work on this model, also becomes a necessity should any additional types 
 # Contributors and Roles
 ## Julian Britton
 ## Bryson Chen
+Bryson's key contributions revolves around the design and integration of the custom end-effector into the physical robot and ROS architecture. Bryson designed the parallel jaw gripper's components in fusion 360, and used those STL files to define the robot in a URDF file for visualisation in RViz. Bryson had also worked on creating launch files for easier use. 3
 ## Matthew Viegas
 
 # Repository Structure
@@ -234,7 +235,7 @@ Package that handles all computer vision tasks for detecting, classifying and lo
 ### src/robot_description
 Package that holds custom end-effector description for visualisation
 ### src/sys_viz
-Package that handles launching all needed nodes, and custom rviz2 configuration.
+Package that handles launching all needed nodes, and custom rviz2 configuration. Also contains launch files for starting the system.
 ### src/teensy_pkg
 Package for interfacing with custom end-effector via teensy
 ### src/transforms
