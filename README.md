@@ -82,7 +82,7 @@ The perception node subscribes to both image topics and activates the main logic
 - Find the object's exact presence in the bounding box using colour thresholding with the detected objects expected tones.
 - Use this colour mask, in combination with the corresponding points in the depth image, to transform all points in the detection into 3d space from the camera perspective.
 - Take an average of all these points to output a centroid of the object in 3d space.
-- ~~The orientation of the object is approximated via taking a sample of points across the object, and producing a plane approximation of them which can output yaw, pitch, roll to be converted into quaternion.~~ 
+- ~~The orientation of the object is approximated via taking a sample of points across the object, and producing a plane approximation of them which can output yaw, pitch, roll to be converted into quaternion.~~ (REMOVED DUE TO INACCURACY)
 - If the object is meant to be unique (i.e. a bin or tray), we keep track of the observation with the highest confidence to ensure only this one is published in final message.
 - Build custom message type LabelledPoseArray with all processed observations and publish as 'camera/objects/labelled_pose_array'
 
@@ -92,6 +92,10 @@ The 'camera/objects/labelled_pose_array' is subscribed to by the brain and visua
 - All objects to be sorted are then finally added to a queue
 
 In the visualiser node, the message is taken in and transformed into a MarkerArray with custom stl meshes describing each tpye of observable object.
+
+### YOLO training
+
+The model was trained utilising the free version of Roboflow, that allowed the team to collaboratively annotate 400 varying images. To make our model more robust to differences in camera and environment, we used augmentations including flipping, rotation, image shearing, saturation, exposure, blur and camera gain that took our original set from 400 to 1020 training images. While this makes it robust to slight changes in similar environments if the objects or the wooden table are modified at all it could cause significant decrease in classification confidence. If not using identical objects and bins, retraining a new model will be required.
 
 ## Custom End-Effector
 The custom end effector designed is a parallel 2-jaw gripper, chosen for its high precision, predictable grasp point, and reliable performance during manipulation tasks. Its mechanism uses a reverse-motion linkage that converts the rotational output of a servo into linear travel, allowing both jaws to slide smoothly along dual guide rods and maintain strict parallelism. Control was handled by a Teensy 4.1, with the servo connected directly to one of its PWM pins. The Teensy received simple serial commands from an Arduino bridge node, which acted as the ROS interface. The central brain node published “open” and “close” commands to the topic monitored by the bridge whenever the robot reached either the grasping pose or the bin-drop pose. Since no gripper state was published back into ROS, the system operated open-loop, relying on the coordination between the Brain node and the arm motion planner to ensure timing was correct.
@@ -160,6 +164,11 @@ Setup steps for teensy and end effector for UR5e:
 ## Dependencies
 
 ## System Variables and Calibration
+
+### YOLO Model
+The existing YOLO model was trained specifically for the test environment and specific objects used. For implementation, with other items a new YOLO model will have to be trained, and referrenced instead of the existing model in the perception node in /sorter_ws/src/perception.
+
+If planning to use the existing model the stl files for printed objects can be found in /sorter_ws/src/visualisation/meshes.
 
 # Running the System
 
