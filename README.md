@@ -5,7 +5,6 @@ Item Picker for the UR5e specifically built for use in the MTRN4231 labs.
 -# Include a Table of Contents at the start of your README (this can be auto-generated). 
 
 # Project Overview
-
 ## Customer Problem
 A small-scale local manufacturing client requires a robotic solution to automate the sorting and organisation of small, packaged components along an assembly line. Currently, workers manually identify, pick, and place these components into designated trays based on visual characteristics such as colour and shape. The manual process of sorting is bottlenecking the assembly line with insufficient output and excessive errors, as well.
 
@@ -16,10 +15,12 @@ The system is designed to operate in a semi-structured environment with objects 
 
 The simplified workflow will consist of: 
 - Using a trained machine learning model, the RGBD camera will detect, and classify objects and bins on the work surface. 
-- Determining the 3D pose of each object detected using calibrated depth camera points
-- Plan and execute pick-and-place trajectories using MoveIt
-- Move to and grip each object using the custom servo-actuated gripper end-effector
-- Move to and drop objects into the corresponding sorting bin
+- Determining the 3D pose of each object detected using calibrated depth camera points.
+- Plan and execute pick-and-place trajectories between objects and respective bins using MoveIt.
+- Move to and grip each object using the custom servo-actuated gripper end-effector.
+- Move to and drop objects into the corresponding sorting bin.
+- Maintaing closed-loop behaviour by checking validity of current movement trajectories using computer vision.
+- Displaying the current state of the system and trajectories using RViz2. 
 
 ## Demo Video
 (OneDrive Link?)
@@ -94,7 +95,6 @@ The 'camera/objects/labelled_pose_array' is subscribed to by the brain and visua
 In the visualiser node, the message is taken in and transformed into a MarkerArray with custom stl meshes describing each tpye of observable object.
 
 ### YOLO training
-
 The model was trained utilising the free version of Roboflow, that allowed the team to collaboratively annotate 400 varying images. To make our model more robust to differences in camera and environment, we used augmentations including flipping, rotation, image shearing, saturation, exposure, blur and camera gain that took our original set from 400 to 1020 training images. While this makes it robust to slight changes in similar environments if the objects or the wooden table are modified at all it could cause significant decrease in classification confidence. If not using identical objects and bins, retraining a new model will be required.
 
 ## Custom End-Effector
