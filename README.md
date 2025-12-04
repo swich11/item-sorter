@@ -2,7 +2,7 @@
 Item Picker for the UR5e specifically built for use in the MTRN4231 labs.
 
 # Table of Contents
--# Include a Table of Contents at the start of your README (this can be auto-generated). 
+[TODO] Include a Table of Contents at the start of your README (this can be auto-generated). 
 
 # Project Overview
 ## Customer Problem
@@ -24,12 +24,14 @@ The simplified workflow will consist of:
 
 ## Demo Video
 (OneDrive Link?)
+[TODO]
 
 # System Architecture
-
 ## rqt Graph
+[TODO]
 
-## Closed-Loop System Behaviour
+## Closed-Loop System Behaviour State Diagram
+[TODO]
 
 ## Custom messages and services
 ### LabelledPose.msg
@@ -118,12 +120,11 @@ The system uses Rviz2 for visualisation ensuring that any users are able to clea
 - The camera colour image with machine learning model output displayed, including bounding boxes, classifications and confidences for each detection. 
 - All objects and buckets visualised in the 3d space via custom markers utilising stl meshes.
 
-[Include pic of final RViz Config]
+[TODO] [Include pic of final RViz Config]
 
 ## Closed-Loop Operation
-
+[TODO]
 # Installation and Setup
-
 ## **Moveit Setup Instructions**
 A slightly modified source install of moveit is provided for MTRN4231. To use it follow the build instructions:
 
@@ -153,10 +154,11 @@ Run robot calibration before running anything else:
 robot_ip:=&lt;robot_ip&gt; target_filename:="${HOME}/my_robot_calibration.yaml"</pre>
 
 ## Hardware setup
-
 ### UR5e 
+Connect to UR5e base machine via ethernet. Ensure the robot is set in manual mode, and has a ROS interface program running. [Reference?]
 
 ### RealSense Camera
+Connect to base machine via supplied USB cable.
 
 ### Teensy & End Effector
 Setup steps for teensy and end effector for UR5e:
@@ -166,16 +168,19 @@ Setup steps for teensy and end effector for UR5e:
 4. Connect UR5e desktop power/interface box to teensy to complete circuit for servo
 
 ## Dependencies
+[TODO]
 
 ## System Variables and Calibration
-
 ### YOLO Model
 The existing YOLO model was trained specifically for the test environment and specific objects used. For implementation, with other items a new YOLO model will have to be trained, and referrenced instead of the existing model in the perception node in /sorter_ws/src/perception.
 
 If planning to use the existing model the stl files for printed objects can be found in /sorter_ws/src/visualisation/meshes.
 
-# Running the System
+### Object and Bin Description
+[TODO]
 
+# Running the System
+[TODO]
 ## **Running in ROS**
 A setup script is provided in **setup.bash**. To use it run: <pre>source setup.bash</pre>
 
@@ -196,10 +201,10 @@ This allows us to launch with the provided launch file to test:
 ## Common Troubleshooting
 
 # Results and Demonstration
-
 ## Final Result (inc. quantitative result)
-
+[TODO]
 ## Compare against design goals
+[TODO]
 
 # Discussion and Future Work
 ## Iterations and Development Challenges
@@ -213,29 +218,41 @@ The next solution was to utilise unique Aruco markers for each type of object. T
 This is how we landed on a machine learning based solution. While it did not provide the easy access to orientation that Aruco markers provided, it gave consistent detections all the time. And this solution would be able to function for most manners of potential objects designs including more complex ones then current simple shapes.
 
 ### MoveIt
-
+[TODO]
 ## Novelty of Existing Solution
-
+[TODO]
 ## Directions for Future Work
 ### YOLO model
 Our model used in perception was trained on a limited dataset. Given more time and resources, this can be trained to become more robust and reliable. 
 
 Future work on this model, also becomes a necessity should any additional types of objects or bins want to be added for use with this system.
 
+### Perception
+- Need to find orientation ...
+
 ### Gripper
 The gripper in its current form has significant room for improvement, despite working reliably. While all components were 3D printed at 10% infill for durability, the inherent limitations of FDM printing such as imprecise hole tolerances and rough surface finishes, made assembly challenging. Several parts required manual drilling and sanding to achieve smooth travel along the guide rods. Although the jaws include grooved contact surfaces, they do not consistently achieve a secure grasp, so adding a higher-friction material such as rubber is planned to improve tactility. Additionally, the interface between the jaws and the guide rods can be refined to reduce friction and improve sliding performance, leading to more reliable and repeatable motion.
+
 ### Visualisation
+Currently colour image annotation is done via the default plot function given by Ultralytics, with default variables has lables and bounding boxes obscure visibility in dense object configurations. Future versions may explicitly setup the plotting to maximise visibility.
+
+Additions to be made to the RViz visualisation:
+- Have marker of object being moved attached to the End Effector. Currently sometimes appears when visible in gripper.
+- Add pointcloud visualisation for unexpected obstacles in system environment
+- Currently it is difficult to visually infer the x,y position of markers not on the workspace surface. Add a thin marker/line parallel to the z-axis from the marker centroid  to the workspace surface.
+- 
 
 ### Closed-Loop Behaviour
-
+[TODO]
 # Contributors and Roles
 ## Julian Britton
+[TODO]
 ## Bryson Chen
 Bryson's key contributions revolves around the design and integration of the custom end-effector into the physical robot and ROS architecture. Bryson designed the parallel jaw gripper's components in fusion 360, and used those STL files to define the robot in a URDF file for visualisation in RViz. Bryson had also worked on creating launch files for easier use. 3
 ## Matthew Viegas
+[TODO]
 
 # Repository Structure
-
 ## sorter_ws
 The main workspace for the whole item sorter system
 ### src/brain
@@ -266,7 +283,10 @@ Old perception package which used Aruco markers, colour thresholding and size ap
 ## ws_moveit2
 
 # References and Acknowledgements
-- UR5e model and gazebo
+[TODO]
+- UR5e model
+- UR5e gazebo
+- UR5e ROS?
 - MoveIt
 - Rviz2
 - Realsense package
