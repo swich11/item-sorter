@@ -94,7 +94,9 @@ The 'camera/objects/labelled_pose_array' is subscribed to by the brain and visua
 In the visualiser node, the message is taken in and transformed into a MarkerArray with custom stl meshes describing each tpye of observable object.
 
 ## Custom End-Effector
-[provide photos/renders, assembly details, engineering drawings, control overview and integration details.]
+The custom end effector designed is a parallel 2-jaw gripper, chosen for its high precision, predictable grasp point, and reliable performance during manipulation tasks. Its mechanism uses a reverse-motion linkage that converts the rotational output of a servo into linear travel, allowing both jaws to slide smoothly along dual guide rods and maintain strict parallelism. Control was handled by a Teensy 4.1, with the servo connected directly to one of its PWM pins. The Teensy received simple serial commands from an Arduino bridge node, which acted as the ROS interface. The Brain node—our system’s central decision-making component—published “open” and “close” commands to the topic monitored by the bridge whenever the robot reached either the grasping pose or the bin-drop pose. Since no gripper state was published back into ROS, the system operated open-loop, relying on the coordination between the Brain node and the arm motion planner to ensure timing was correct.
+
+The following images and diagrams illustrate the design.
 
 ## System Visualisation
 The system uses Rviz2 for visualisation ensuring that any users are able to clearly observe the state of the workspace and the robot. Visualised in our custom Rviz config are:
@@ -146,7 +148,12 @@ robot_ip:=&lt;robot_ip&gt; target_filename:="${HOME}/my_robot_calibration.yaml"<
 ### RealSense Camera
 
 ### Teensy & End Effector
-
+Setup steps for teensy and end effector for UR5e,
+    1. Attach end effector to ur5e connecting mount
+    2. Connect teensy to pc usb port
+    3. Connect servo wires to UR5e using phoenix connectors and custom mount
+    4. Connect UR5e desktop power/interface box to teensy to complete circuit for servo
+    
 ## Dependencies
 
 ## System Variables and Calibration
