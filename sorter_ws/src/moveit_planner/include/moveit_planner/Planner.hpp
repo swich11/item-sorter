@@ -25,7 +25,7 @@ constexpr double POSITION_PRECISION = 0.01; // 1 cm
 constexpr double ORIENTATION_PRECISION = 5.0/180.0 * M_PI; // 5 degrees
 constexpr double GRIPPER_HEIGHT = 0.16;
 constexpr double GRIPPER_OFFSET = 0.1;
-constexpr double GRAB_OFFSET = 0.01;
+constexpr double GRAB_OFFSET = 0.03;
 
 
 class Planner : public rclcpp::Node {

@@ -232,16 +232,16 @@ moveit_msgs::msg::Constraints Planner::getPathConstraints() {
         wrist_1_constraint.tolerance_below = 75 * M_PI / 180.0;
         wrist_1_constraint.weight = 1.0;
 
-        moveit_msgs::msg::JointConstraint elbow_constraint;
-        elbow_constraint.joint_name = "elbow_joint";
-        elbow_constraint.position = last_joint_values.at(elbow_constraint.joint_name);
-        elbow_constraint.tolerance_above = M_PI / 2.0;
-        elbow_constraint.tolerance_below = 0.2;
-        elbow_constraint.weight = 1.0;
+        // moveit_msgs::msg::JointConstraint elbow_constraint;
+        // elbow_constraint.joint_name = "elbow_joint";
+        // elbow_constraint.position = last_joint_values.at(elbow_constraint.joint_name);
+        // elbow_constraint.tolerance_above = M_PI / 2.0;
+        // elbow_constraint.tolerance_below = 0.2;
+        // elbow_constraint.weight = 1.0;
 
         constraints.joint_constraints.push_back(wrist_2_constraint);
         constraints.joint_constraints.push_back(wrist_1_constraint);
-        constraints.joint_constraints.push_back(elbow_constraint);
+        // constraints.joint_constraints.push_back(elbow_constraint);
     } catch (std::out_of_range&) {
         RCLCPP_ERROR(this->get_logger(), "Tried to read from unavailable joint states.");
     }
