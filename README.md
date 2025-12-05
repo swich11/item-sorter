@@ -2,7 +2,6 @@
 Item Picker for the UR5e specifically built for use in the MTRN4231 labs.
 
 # Table of Contents
-[TODO] Include a Table of Contents at the start of your README (this can be auto-generated). 
 - [UR5e Item Sorter](#ur5e-item-sorter)
 - [Table of Contents](#table-of-contents)
 - [Project Overview](#project-overview)
@@ -16,11 +15,8 @@ Item Picker for the UR5e specifically built for use in the MTRN4231 labs.
     - [LabelledPose.msg](#labelledposemsg)
     - [LabelledPoseArray.msg](#labelledposearraymsg)
     - [Move.srv](#movesrv)
-  - [geometry\_msgs/Pose pose](#geometry_msgspose-pose)
     - [TransformLookup.srv](#transformlookupsrv)
-  - [string to\_link](#string-to_link)
     - [TransformLookupArray.srv](#transformlookuparraysrv)
-  - [string to\_link](#string-to_link-1)
 - [Technical Components](#technical-components)
   - [Computer Vision](#computer-vision)
     - [YOLO training](#yolo-training)
@@ -186,44 +182,44 @@ The consumer thread dequeues each pairing, double checks its confidence is still
 ## Custom messages and services
 ### LabelledPose.msg
 Message type to represent labelled, detected objects and their pose. Used in brain, perception and visualisation.
-<pre>
+```
 string label
 geometry_msgs/Pose pose
-</pre>
+```
 ### LabelledPoseArray.msg
 Message type to represent a full set of LabelledPose messages. Used in brain, perception and visualisation.
-<pre>
+```
 std_msgs/Header header
 LabelledPose[] poses
-</pre>
+```
 
 ### Move.srv
 The **MoveIt Planner** node exposes a service using this service description. The *pose* is a goal pose for the planner to reach, *grasp* denotes to the planner whether it should grasp or ungrasp at the end of its path. The response contains a success bool and an error message on failure.
-<pre>
+```
 bool grasp
 geometry_msgs/Pose pose
 ---
 bool success
 string message
-</pre>
+```
 ### TransformLookup.srv
 This service is exposed by the **transform node** to perform transform lookups between frames. The request contains the pose to be transfromed and a frame id *to_link* to transform to. The response has a success boolean and the transformed pose if succesful.
-<pre>
+```
 geometry_msgs/PoseStamped pose
 string to_link
 ---
 bool success
 geometry_msgs/PoseStamped pose
-</pre>
+```
 ### TransformLookupArray.srv
 As for TransformLookup but for batches of poses from the same starting frame to the same destination frame.
-<pre>
+```
 geometry_msgs/PoseStamped[] poses
 string to_link
 ---
 bool success
 geometry_msgs/PoseStamped[] poses
-</pre>
+```
 
 # Technical Components
 ## Computer Vision
