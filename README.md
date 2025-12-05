@@ -28,14 +28,15 @@ Item Picker for the UR5e specifically built for use in the MTRN4231 labs.
   - [**Moveit Setup Instructions**](#moveit-setup-instructions)
   - [**UR5e Setup Instructions**](#ur5e-setup-instructions)
   - [**RealSense D435 Instructions**](#realsense-d435-instructions)
+    - [Python Dependencies](#python-dependencies)
+  - [New Object Calibration](#new-object-calibration)
+    - [YOLO Model](#yolo-model)
+    - [Perception (/sorter\_ws/src/perception)](#perception-sorter_wssrcperception)
   - [Hardware setup](#hardware-setup)
     - [UR5e](#ur5e)
     - [RealSense Camera](#realsense-camera)
     - [Teensy \& End Effector](#teensy--end-effector)
-  - [Robot Calibration](#robot-calibration)
-  - [New Object Calibration](#new-object-calibration)
-    - [YOLO Model](#yolo-model)
-    - [Perception (/sorter\_ws/src/perception)](#perception-sorter_wssrcperception)
+    - [Robot Calibration](#robot-calibration)
     - [Visualisation (/sorter\_ws/src/visualisation)](#visualisation-sorter_wssrcvisualisation)
     - [Brain (/sorter\_ws/src/brain)](#brain-sorter_wssrcbrain)
   - [List of Dependencies](#list-of-dependencies)
@@ -60,7 +61,7 @@ Item Picker for the UR5e specifically built for use in the MTRN4231 labs.
     - [Perception](#perception)
     - [Gripper](#gripper)
     - [Visualisation](#visualisation)
-    - [Closed-Loop Behaviour](#closed-loop-behaviour)
+    - [Brain and Closed-Loop Behaviour](#brain-and-closed-loop-behaviour)
 - [Contributors and Roles](#contributors-and-roles)
   - [Julian Britton](#julian-britton)
   - [Bryson Chen](#bryson-chen)
@@ -503,8 +504,14 @@ Additions to be made to the RViz visualisation:
 - Add pointcloud visualisation for unexpected obstacles in system environment
 - Currently it is difficult to visually infer the x,y position of markers not on the workspace surface. Add a thin marker/line parallel to the z-axis from the marker centroid  to the workspace surface.
 
-### Closed-Loop Behaviour
-[TODO]
+### Brain and Closed-Loop Behaviour
+The major steps for future work in the brain are to resolve the issues that were causing the decission taking between movements to take an excessive amount of time, and the bug that results in items being dropped prematurely during movement trajectories.
+
+Additional points of work for closed-loop behaviour would include:
+  - Real-time consideration of obstacles detected using perception during motion
+  - Add logging of each action, objects involved, important poses and success/failure 
+  - Active output to signify that all found objects have been moved.
+
 # Contributors and Roles
 ## Julian Britton
 [TODO]
