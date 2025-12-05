@@ -245,9 +245,16 @@ The custom end effector designed is a parallel 2-jaw gripper, chosen for its hig
 
 The following images and diagrams illustrate the design.
 <div align="center">
-  <img src="images/gripper.jpeg" width="250">
+  <img src="images/gripper%20in%20cad.JPG" width="500">
+  <img src="images/grip_gif.gif" width="439">
 </div>
-![alt text](https://github.com/swich11/item-sorter/blob/readme/images/grip_gif.gif)
+<div align="center">
+  <img src="images/gripper.jpeg" width="300">
+  <img src="images/gripper_drawings.JPG" width="640">
+</div>
+
+
+
 
 
 
@@ -261,8 +268,9 @@ The system uses Rviz2 for visualisation ensuring that any users are able to clea
 - All objects and buckets visualised in the 3d space via custom markers utilising stl meshes.
 
 <div align="center">
-  <img src="images/rviz.png" width="1000">
+  <img src="images/rviz.png" width="500">
 </div>
+
 
 # Installation and Setup
 
@@ -310,6 +318,11 @@ Install the depth camera drivers and ros wrapper:<pre>sudo apt install ros-humbl
 ### Python Dependencies
 To install the python dependencies: <pre>pip install -r requirements.txt</pre>
 
+## Current Used Objects
+The items to test our system includes 9 different target objects to be and pick and placed as well as 3 target bins. The 9 items include a green, blue and red coloured cube, sphere and hexagonal prism and the 3 target bins include a square bin, circular bin and hexagonal bin as seen in the image below. All STL. files can be found [here](https://github.com/swich11/item-sorter/tree/readme_b/sorter_ws/src/visualisation/meshes).
+<div align="center">
+  <img src="images/testing_obj.JPG" width="750">
+</div>
 
 ### YOLO Model
 The existing YOLO model was trained specifically for the test environment and specific objects used. For implementation, with other items a new YOLO model will have to be trained, and referenced instead of the existing model in the perception node in /sorter_ws/src/perception.
@@ -346,7 +359,7 @@ Connect to your machine via the usb-c port on the real-sense camera.
 ### Teensy & End Effector
 Setup steps for teensy and end effector for UR5e:
 1. Attach end effector to UR5e connecting mount.
-2. Connect teensy to usb port on your machine.
+2. Connect teensy to usb port on your machine. (check teensy port defined correctly in [here](https://github.com/swich11/item-sorter/blob/readme_b/sorter_ws/src/teensy_pkg/teensy_pkg/util_arduino_node.py) for personal PC)
 3. Connect servo wires to UR5e using phoenix connectors and the custom mount.
 4. Connect UR5e desktop power/interface box to the teensy to complete the circuit for servo.
 
@@ -503,11 +516,11 @@ Houses all custom message and service definitions
 ### src/perception
 Package that handles all computer vision tasks for detecting, classifying and locating objects and bins in the camera frame
 ### src/robot_description
-Package that holds custom end-effector description for visualisation
+Package that holds custom end-effector description and ur5e with end-effector description for visualisation
 ### src/sys_viz
 Package that handles launching all needed nodes, and custom rviz2 configuration. Also contains launch files for starting the system.
 ### src/teensy_pkg
-Package for interfacing with custom end-effector via teensy
+Package for interfacing with custom end-effector via teensy. Also contains a testing node that sends serial message.
 ### src/transforms
 Package for handling all additionnal ros transformer frames and providing a service for mapping poses between frames
 ### src/visualisation
