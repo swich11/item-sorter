@@ -167,8 +167,30 @@ Setup steps for teensy and end effector for UR5e:
 3. Connect servo wires to UR5e using phoenix connectors and custom mount
 4. Connect UR5e desktop power/interface box to teensy to complete circuit for servo
 
-## Dependencies
-[TODO]
+## List of Dependencies
+### ROS Dependencies
+- ament_cmake
+- rclcpp
+- rclpy
+- std_msgs
+- geometry_msgs
+- sensor_msgs
+- std_srvs
+- cv_bridge
+- rosidl_default_generators
+- moveit_ros_planning_interface
+- tf2
+- tf2_ros
+- tf2_geometry_msgs
+
+### C++
+- Eigen3
+
+### Python
+- opencv-python
+- opencv-contrib-python (only for retired object detection code)
+- numpy
+- ultralytics
 
 ## System Calibration
 This system is uniquely calibrated to function within the specific environment and with the specific set of objects and bins. As a result major changes need to be made when using this system in a new environment or with new items.
@@ -212,6 +234,7 @@ In brain we setup the connection between objects and their respective bins. In /
 
 # Running the System
 [TODO]
+
 ## **Running in ROS**
 A setup script is provided in **setup.bash**. To use it run: <pre>source setup.bash</pre>
 
