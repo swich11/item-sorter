@@ -322,11 +322,20 @@ This allows us to launch with the provided launch file to test:
 
 ## Common Troubleshooting
 
-# Results and Demonstration
-## Final Result (inc. quantitative result)
-[TODO]
-## Compare against design goals
-[TODO]
+# Results
+As could be seen in the demo video, the final solution is capable of executing the full closed-loop behavior loop as intended with minor issues. Being able to operate with objects on the flat worksurface, assuming no obstacles capable of physcial interference.
+
+The perception node successfully identified all circualar and square items the vast majority of the time even with partial obstruction. However, the trained model due to insufficient data confused hexagonal and cubic shapes. The node was optimal in locating items towards the middle space of the work space succesfully hitting our target of locating within 1cm, but would begin to drift the further away from this section it was moved (including vertically). 
+
+The visualisation was responsive to all physical changes and well represented the physical state, with only minor issues. These being the semi-clustered annotated camera view and the minor locational issues caused my drift in perception.
+
+The gripper was greatly successful in being able to clamp around and release objects as needed. Only minor issues where items did tend to slip slightly from the grabbed position but never fell out. 
+
+The closed-loop behaviour goverened by brain was generally working as intended. Successfully ensuring that paths were valid and stopping whenever they were no longer deemed possible. When working perfectly the sytem operated pick and place trajectories well within the 5 sec goal originally set for the project. However, many trajectories output by the movement planner were rejected by the UR robot resulting in long wait times between robot movements. And an isssue was causing the gripper to release when grabbing objects before moving them to the bin, this is predicted to be a result of an unexpected response from the moveIt planner.
+
+Besides these issues, original goals for the project planned for the solution to be robust towards obstacles as well as capable of interacting within objects and bins wthin a 3d space and not just on the worksurface. These were the major novelties that were unable to be successfuly implemented.
+
+Overall the solution is partially functional being able to fulfill the core design requirements in optimal cases, however with clear shortcomings that required additional time to resolve.
 
 # Discussion and Future Work
 ## Iterations and Development Challenges
