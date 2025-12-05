@@ -318,7 +318,6 @@ Install the depth camera drivers and ros wrapper:<pre>sudo apt install ros-humbl
 To install the python dependencies: <pre>pip install -r requirements.txt</pre>
 
 
-## New Object Calibration
 ### YOLO Model
 The existing YOLO model was trained specifically for the test environment and specific objects used. For implementation, with other items a new YOLO model will have to be trained, and referenced instead of the existing model in the perception node in /sorter_ws/src/perception.
 
@@ -379,30 +378,6 @@ For new items to be visualised they must have their label appended to ObjectID e
 ### Brain (/sorter_ws/src/brain)
 In brain we setup the connection between objects and their respective bins. In /src/Brain.cpp the Brain::get_goal_label function should be modified to match between object labels and their respective bins.
 
-## List of Dependencies
-### ROS Dependencies
-- ament_cmake
-- rclcpp
-- rclpy
-- std_msgs
-- geometry_msgs
-- sensor_msgs
-- std_srvs
-- cv_bridge
-- rosidl_default_generators
-- moveit_ros_planning_interface
-- tf2
-- tf2_ros
-- tf2_geometry_msgs
-
-### C++
-- Eigen3
-
-### Python
-- opencv-python
-- opencv-contrib-python (only for retired object detection code)
-- numpy
-- ultralytics
 
 # Running the System
 ## **Running on the Real UR5e**
@@ -443,12 +418,6 @@ To run the item-sorter do:
 <pre>ros2 launch sys_viz auziliary_sim.launch.py</pre>
 This will launch with the **test-detector** node in place of the **item-detector** which publishes objects in set positions.
 
-## Launch commands
-
-## Expected outputs
-
-## Common Troubleshooting
-
 # Results
 As could be seen in the demo video, the final solution is capable of executing the full closed-loop behavior loop as intended with minor issues. Being able to operate with objects on the flat worksurface, assuming no obstacles capable of physcial interference.
 
@@ -476,9 +445,16 @@ The next solution was to utilise unique Aruco markers for each type of object. T
 This is how we landed on a machine learning based solution. While it did not provide the easy access to orientation that Aruco markers provided, it gave consistent detections all the time. And this solution would be able to function for most manners of potential objects designs including more complex ones then current simple shapes.
 
 ### MoveIt
-[TODO]
+As could be seen in the demonstration video, the robot implementation wasn't fully functional. This was purely due to the MoveIt implementation. It could be seen that the robot, when moved would move to the correct items, and would move above the buckets to drop the item. However in many cases these moves failed or the gripper dropped the item before the move could be completed.
+
+The cause of the first problem where the movement would completely fail was due to the use of Joint Constraints in the MoveIt implementation. These Joint Constraints, while theoretically correct would fail in cases where the physical robot reported a joint angle that wrapped around the full revolution. For example, the robot could be reported a rotation of 180 degrees, and suddenly begin reporting a -180 degree rotation. As this is an intended functionality of the UR5e arm used, it should have been accounted for in the choice of constraints used.
+
+The second issue where the robot would drop the item early in a move instead of lifting it is caused by an incorrect while loop statement. The MoveIt node, while waiting for the move to be completed asynchronously is conditional upon whether or not the moveit action server itself is active or not. This condition was chosen as a proxy to the condition of whether the robot has reached the goal pose. In practice, this choice was dysfunctional, sometimes causing the robot to drop the item early. Therefore, it would almost certainly work better if the robot would actually wait for the robot to reach the goal pose before exiting this while loop. 
+
 ## Novelty of Existing Solution
-[TODO]
+The YOLO implementation and general gripper design used for the item-sorter were designed with generality in mind. This means that it is possible for the robot design to be reused across contexts simply by training a new YOLO model with the intended objects. Therefore, with fixes to the MoveIt implementation the presented item-sorter would be usable in industrial context.
+
+
 ## Directions for Future Work
 ### Architecture Reworks
 Currently to add or modify the objects and bins we have to go through various sections of the codebase and modify various things as mentioned in [New Object Calibration](#new-object-calibration). In future work, the system should be modified to have a new package or setup section that collates all details of objects and bins needed for perception, visualisation and the brain to function.
@@ -514,7 +490,7 @@ Additional points of work for closed-loop behaviour would include:
 
 # Contributors and Roles
 ## Julian Britton
-[TODO]
+Julian's contributions involved writing the brain, moveit_planner, and transforms nodes, annotating data and training the YOLO model used and full system integration. Work was performed to debug, and integrate ROS code including that in the perception, visualisation, transforms, brain, moveit_planner, and sys_viz packages. He also contributed to testing all of the robot behaviours.
 ## Bryson Chen
 Bryson's key contributions revolves around the design and integration of the custom end-effector into the physical robot and ROS architecture. Bryson designed the parallel jaw gripper's components in fusion 360, and used those STL files to define the robot in a URDF file for visualisation in RViz. Bryson had also worked on creating launch files for easier use. 3
 ## Matthew Viegas
