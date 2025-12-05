@@ -476,7 +476,7 @@ This is how we landed on a machine learning based solution. While it did not pro
 [TODO]
 ## Directions for Future Work
 ### Architecture Reworks
-Currently to add or modify the objects and bins we have to go through various sections of the codebase and modify various things as mentioned in [Link to new object setup section]. In future work, the system should be modified to have a new package or setup section that collates all details of objects and bins needed for perception, visualisation and the brain to function.
+Currently to add or modify the objects and bins we have to go through various sections of the codebase and modify various things as mentioned in [New Object Calibration](#new-object-calibration). In future work, the system should be modified to have a new package or setup section that collates all details of objects and bins needed for perception, visualisation and the brain to function.
 
 ### YOLO model
 Our model used in perception was trained on a limited dataset. Given more time and resources, this can be trained to become more robust and reliable. 
@@ -535,7 +535,7 @@ Package for handling the visualisation of all objects and bins as custom stl mar
 ## unused_pkgs
 Houses old packages no longer used in final solution.
 ### object_detect
-Old perception package which used Aruco markers, colour thresholding and size approximation to classify and locate objects. This did NOT use machine learning. For more info as to why it was removed see [Link to discussion]
+Old perception package which used Aruco markers, colour thresholding and size approximation to classify and locate objects. This did NOT use machine learning. For more info as to why it was removed see [Object Detection Iteration](#object-detection)
 ## ur_gazebo
 ## ws_moveit2
 
