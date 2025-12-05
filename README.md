@@ -222,7 +222,7 @@ sudo apt update && rosdep install -r --from-paths . --ignore-src --rosdistro $RO
 2. Build the workspace. If you have more than 16Gb of system RAM:<pre>cd ws_moveit2
 colcon build --mixin release</pre>
 Less than 16Gb of system RAM:<pre>cd ws_moveit2
-colcon build --mixin release --executor sequential
+colcon build --mixin release --executor sequential</pre>
 
 
 
