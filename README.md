@@ -227,7 +227,6 @@ The perception node subscribes to both image topics and activates the main logic
 - Find the object's exact presence in the bounding box using colour thresholding with the detected objects expected tones.
 - Use this colour mask, in combination with the corresponding points in the depth image, to transform all points in the detection into 3d space from the camera perspective.
 - Take an average of all these points to output a centroid of the object in 3d space.
-- ~~The orientation of the object is approximated via taking a sample of points across the object, and producing a plane approximation of them which can output yaw, pitch, roll to be converted into quaternion.~~ (REMOVED DUE TO INACCURACY)
 - If the object is meant to be unique (i.e. a bin or tray), we keep track of the observation with the highest confidence to ensure only this one is published in final message.
 - Build custom message type LabelledPoseArray with all processed observations and publish as 'camera/objects/labelled_pose_array'
 
@@ -511,9 +510,9 @@ Package that acts as the main brain for the system. Determining based on percept
 ### src/interfaces
 Houses all custom message and service definitions
 ### src/moveit_config
-
+Provides an edited moveit launch file that allows for a custom RViz implementation. Also provides the SRDF file for the Gripper.
 ### src/moveit_planner
-
+Package contains the MoveIt planner node and the launch files for the moveit planner node.
 ### src/perception
 Package that handles all computer vision tasks for detecting, classifying and locating objects and bins in the camera frame
 ### src/robot_description
