@@ -170,14 +170,45 @@ Setup steps for teensy and end effector for UR5e:
 ## Dependencies
 [TODO]
 
-## System Variables and Calibration
+## System Calibration
+This system is uniquely calibrated to function within the specific environment and with the specific set of objects and bins. As a result major changes need to be made when using this system in a new environment or with new items.
+
 ### YOLO Model
 The existing YOLO model was trained specifically for the test environment and specific objects used. For implementation, with other items a new YOLO model will have to be trained, and referrenced instead of the existing model in the perception node in /sorter_ws/src/perception.
 
 If planning to use the existing model the stl files for printed objects can be found in /sorter_ws/src/visualisation/meshes.
+### Perception (/sorter_ws/src/perception)
+The colour_dict in perception/ItemDetector.py should be modified to suit new objects in the form
+<pre>
+    colour_dict = {
+        "[OBJECT LABEL]" : ObjectColours.[COLOUR],
+        "[OBJECT2 LABEL]" : ObjectColours.[COLOUR],
+        ...
+    }
+</pre>
+The conf_dect in perception/ItemDetector.py should be modified to suit new objects in the form
+<pre>
+    conf_dict = {
+        "[OBJECT LABEL]" : (0.0, None),
+        "[OBJECT2 LABEL]" : (0.0, None),
+        ...
+    }
+</pre>
+### Visualisation (/sorter_ws/src/visualisation)
+As mentioned earlier, the stl files of custom objects can be found in the /meshes directory, and can be appended to as needed.
 
-### Object and Bin Description
-[TODO]
+For new items to be visualised they must have their label appended to ObjectID enum in /include/visualisation/ObjectVisualiser.hpp. Then marker_label_map must be modified in /src/ObjectVisualiser.cpp. Below are two examples, the first would be for an item that uses a default ROS2 marker type, and the second for a custom marker type using the stl file in the /meshes directory.
+<pre>
+    marker_label_map = {
+        {"[OBJECT LABEL]", ObjectMarkerInfo{ObjectID::[OBJECT LABEL], Marker::CUBE, 255.0, 0.0, 0.0, 0.05, 0.05, 0.05, false}},
+        {"[OBJECT2 LABEL]", ObjectMarkerInfo{ObjectID::[OBJECT2 LABEL], Marker::CYLINDER, 255.0, 0.0, 0.0, 1.0, 1.0, 1.0, true, 
+            "package://visualisation/meshes/[OBJECT2].stl"}},
+        ...
+    };
+</pre>
+
+### Brain (/sorter_ws/src/brain)
+In brain we setup the connection between objects and their respective bins. In /src/Brain.cpp the Brain::get_goal_label function should be modified to match between object labels and their respective bins.
 
 # Running the System
 [TODO]
@@ -229,6 +260,7 @@ Future work on this model, also becomes a necessity should any additional types 
 
 ### Perception
 - Need to find orientation ...
+- Add new colours to perception masking and add being able to take a combined mask of several colours combined for a more complex object.
 
 ### Gripper
 The gripper in its current form has significant room for improvement, despite working reliably. While all components were 3D printed at 10% infill for durability, the inherent limitations of FDM printing such as imprecise hole tolerances and rough surface finishes, made assembly challenging. Several parts required manual drilling and sanding to achieve smooth travel along the guide rods. Although the jaws include grooved contact surfaces, they do not consistently achieve a secure grasp, so adding a higher-friction material such as rubber is planned to improve tactility. Additionally, the interface between the jaws and the guide rods can be refined to reduce friction and improve sliding performance, leading to more reliable and repeatable motion.
