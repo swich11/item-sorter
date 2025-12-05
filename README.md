@@ -253,14 +253,18 @@ This is how we landed on a machine learning based solution. While it did not pro
 ## Novelty of Existing Solution
 [TODO]
 ## Directions for Future Work
+### Architecture Reworks
+Currently to add or modify the objects and bins we have to go through various sections of the codebase and modify various things as mentioned in [Link to new object setup section]. In future work, the system should be modified to have a new package or setup section that collates all details of objects and bins needed for perception, visualisation and the brain to function.
+
 ### YOLO model
 Our model used in perception was trained on a limited dataset. Given more time and resources, this can be trained to become more robust and reliable. 
 
 Future work on this model, also becomes a necessity should any additional types of objects or bins want to be added for use with this system.
 
 ### Perception
-- Need to find orientation ...
-- Add new colours to perception masking and add being able to take a combined mask of several colours combined for a more complex object.
+Currently objects being used for testing are simple possessing only one major colour, such when colour masking we only make note of that major colour. The functionality to collate specific colour masks of varying ranges based on more complex objects should be added.
+
+In perception, we find pose however the orientation is assumed to be facing straight upwards. This should be remedied by a planar approximation the objects surface.
 
 ### Gripper
 The gripper in its current form has significant room for improvement, despite working reliably. While all components were 3D printed at 10% infill for durability, the inherent limitations of FDM printing such as imprecise hole tolerances and rough surface finishes, made assembly challenging. Several parts required manual drilling and sanding to achieve smooth travel along the guide rods. Although the jaws include grooved contact surfaces, they do not consistently achieve a secure grasp, so adding a higher-friction material such as rubber is planned to improve tactility. Additionally, the interface between the jaws and the guide rods can be refined to reduce friction and improve sliding performance, leading to more reliable and repeatable motion.
@@ -272,7 +276,6 @@ Additions to be made to the RViz visualisation:
 - Have marker of object being moved attached to the End Effector. Currently sometimes appears when visible in gripper.
 - Add pointcloud visualisation for unexpected obstacles in system environment
 - Currently it is difficult to visually infer the x,y position of markers not on the workspace surface. Add a thin marker/line parallel to the z-axis from the marker centroid  to the workspace surface.
-- 
 
 ### Closed-Loop Behaviour
 [TODO]
