@@ -267,7 +267,14 @@ The system uses Rviz2 for visualisation ensuring that any users are able to clea
 - All objects and buckets visualised in the 3d space via custom markers utilising stl meshes.
 
 <div align="center">
-  <img src="images/rviz.png" width="1000">
+  <img src="images/rviz.png" width="500">
+  <img src="images/gripper in cad/JPG" width="500">
+</div>
+<div align="center">
+  <img src="images/gripper_drawings.png" width="500">
+</div>
+<div align="center">
+  <img src="images/testing_obj.JPG" width="500">
 </div>
 
 # Installation and Setup
