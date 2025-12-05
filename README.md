@@ -531,19 +531,18 @@ Houses old packages no longer used in final solution.
 ### object_detect
 Old perception package which used Aruco markers, colour thresholding and size approximation to classify and locate objects. This did NOT use machine learning. For more info as to why it was removed see [Object Detection Iteration](#object-detection)
 ## ur_gazebo
+This directory contains the simulator from the *ur_simulation_gazebo* [github](https://github.com/UniversalRobots/Universal_Robots_ROS2_Gazebo_Simulation). It is its own ROS workspace.
 ## ws_moveit2
+This ROS workspace contains MoveIt2 and its dependencies.
 
 # Acknowledgements
-Special thanks to design and testing assistence from MTRN4231 Lecturer Will Midgley and demonstrators Saba Ghorbani Barzegar, David Nie, Mitchell Torok and Alex Cronin
+Special thanks to design and testing assistence from MTRN4231 Lecturer Will Midgley and demonstrators Saba Ghorbani Barzegar, David Nie, Mitchell Torok and Alex Cronin.
+
+Generative AI was used in the production of code for this project.
 
 # References
-[TODO]
-- UR5e model
-- UR5e gazebo
-- UR5e ROS?
-- MoveIt
-- Rviz2
-- Realsense package
-
-
+- MoveIt2 Tutorials: https://moveit.picknik.ai/main/index.html
+- YOLO ultralytics tutorials: https://docs.ultralytics.com/modes/train/#train-settings
+- ROS2 tutorials: https://docs.ros.org/en/humble/Tutorials
+- UR_Simulation_Gazebo: https://github.com/UniversalRobots/Universal_Robots_ROS2_Gazebo_Simulation
 
