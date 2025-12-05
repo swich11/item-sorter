@@ -29,6 +29,7 @@ Item Picker for the UR5e specifically built for use in the MTRN4231 labs.
   - [**UR5e Setup Instructions**](#ur5e-setup-instructions)
   - [**RealSense D435 Instructions**](#realsense-d435-instructions)
     - [Python Dependencies](#python-dependencies)
+  - [Current Used Objects](#current-used-objects)
     - [YOLO Model](#yolo-model)
     - [Perception (/sorter\_ws/src/perception)](#perception-sorter_wssrcperception)
   - [Hardware setup](#hardware-setup)
