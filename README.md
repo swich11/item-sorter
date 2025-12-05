@@ -3,6 +3,90 @@ Item Picker for the UR5e specifically built for use in the MTRN4231 labs.
 
 # Table of Contents
 [TODO] Include a Table of Contents at the start of your README (this can be auto-generated). 
+- [UR5e Item Sorter](#ur5e-item-sorter)
+- [Table of Contents](#table-of-contents)
+- [Project Overview](#project-overview)
+  - [Customer Problem](#customer-problem)
+  - [Robot Functionality](#robot-functionality)
+  - [Demo Video](#demo-video)
+- [System Architecture](#system-architecture)
+  - [ROS Graph](#ros-graph)
+  - [System Behaviour State Diagram](#system-behaviour-state-diagram)
+  - [Custom messages and services](#custom-messages-and-services)
+    - [LabelledPose.msg](#labelledposemsg)
+    - [LabelledPoseArray.msg](#labelledposearraymsg)
+    - [Move.srv](#movesrv)
+  - [geometry\_msgs/Pose pose](#geometry_msgspose-pose)
+    - [TransformLookup.srv](#transformlookupsrv)
+  - [string to\_link](#string-to_link)
+    - [TransformLookupArray.srv](#transformlookuparraysrv)
+  - [string to\_link](#string-to_link-1)
+- [Technical Components](#technical-components)
+  - [Computer Vision](#computer-vision)
+    - [YOLO training](#yolo-training)
+  - [Custom End-Effector](#custom-end-effector)
+  - [System Visualisation](#system-visualisation)
+- [Installation and Setup](#installation-and-setup)
+  - [System Requirements](#system-requirements)
+  - [Installation](#installation)
+  - [**Moveit Setup Instructions**](#moveit-setup-instructions)
+  - [**UR5e Setup Instructions**](#ur5e-setup-instructions)
+  - [**RealSense D435 Instructions**](#realsense-d435-instructions)
+  - [Hardware setup](#hardware-setup)
+    - [UR5e](#ur5e)
+    - [RealSense Camera](#realsense-camera)
+    - [Teensy \& End Effector](#teensy--end-effector)
+  - [Robot Calibration](#robot-calibration)
+  - [New Object Calibration](#new-object-calibration)
+    - [YOLO Model](#yolo-model)
+    - [Perception (/sorter\_ws/src/perception)](#perception-sorter_wssrcperception)
+    - [Visualisation (/sorter\_ws/src/visualisation)](#visualisation-sorter_wssrcvisualisation)
+    - [Brain (/sorter\_ws/src/brain)](#brain-sorter_wssrcbrain)
+  - [List of Dependencies](#list-of-dependencies)
+    - [ROS Dependencies](#ros-dependencies)
+    - [C++](#c)
+    - [Python](#python)
+- [Running the System](#running-the-system)
+  - [**Running on the Real UR5e**](#running-on-the-real-ur5e)
+  - [**Running in Simulation**](#running-in-simulation)
+  - [Launch commands](#launch-commands)
+  - [Expected outputs](#expected-outputs)
+  - [Common Troubleshooting](#common-troubleshooting)
+- [Results](#results)
+- [Discussion and Future Work](#discussion-and-future-work)
+  - [Iterations and Development Challenges](#iterations-and-development-challenges)
+    - [Object Detection](#object-detection)
+    - [MoveIt](#moveit)
+  - [Novelty of Existing Solution](#novelty-of-existing-solution)
+  - [Directions for Future Work](#directions-for-future-work)
+    - [Architecture Reworks](#architecture-reworks)
+    - [YOLO model](#yolo-model-1)
+    - [Perception](#perception)
+    - [Gripper](#gripper)
+    - [Visualisation](#visualisation)
+    - [Closed-Loop Behaviour](#closed-loop-behaviour)
+- [Contributors and Roles](#contributors-and-roles)
+  - [Julian Britton](#julian-britton)
+  - [Bryson Chen](#bryson-chen)
+  - [Matthew Viegas](#matthew-viegas)
+- [Repository Structure](#repository-structure)
+  - [sorter\_ws](#sorter_ws)
+    - [src/brain](#srcbrain)
+    - [src/interfaces](#srcinterfaces)
+    - [src/moveit\_config](#srcmoveit_config)
+    - [src/moveit\_planner](#srcmoveit_planner)
+    - [src/perception](#srcperception)
+    - [src/robot\_description](#srcrobot_description)
+    - [src/sys\_viz](#srcsys_viz)
+    - [src/teensy\_pkg](#srcteensy_pkg)
+    - [src/transforms](#srctransforms)
+    - [src/visualisation](#srcvisualisation)
+  - [unused\_pkgs](#unused_pkgs)
+    - [object\_detect](#object_detect)
+  - [ur\_gazebo](#ur_gazebo)
+  - [ws\_moveit2](#ws_moveit2)
+- [References and Acknowledgements](#references-and-acknowledgements)
+
 
 # Project Overview
 ## Customer Problem
@@ -255,32 +339,8 @@ Setup steps for teensy and end effector for UR5e:
 To calibrate the robot controller run the following **after** connecting to the robot via ethernet.
 <pre>ros2 launch ur_calibration calibration_correction.launch.py \
 robot_ip:=&lt;robot_ip&gt; target_filename:="${HOME}/my_robot_calibration.yaml"</pre>
-## List of Dependencies
-### ROS Dependencies
-- ament_cmake
-- rclcpp
-- rclpy
-- std_msgs
-- geometry_msgs
-- sensor_msgs
-- std_srvs
-- cv_bridge
-- rosidl_default_generators
-- moveit_ros_planning_interface
-- tf2
-- tf2_ros
-- tf2_geometry_msgs
 
-### C++
-- Eigen3
-
-### Python
-- opencv-python
-- opencv-contrib-python (only for retired object detection code)
-- numpy
-- ultralytics
-
-
+## New Object Calibration
 ### YOLO Model
 The existing YOLO model was trained specifically for the test environment and specific objects used. For implementation, with other items a new YOLO model will have to be trained, and referenced instead of the existing model in the perception node in /sorter_ws/src/perception.
 
@@ -317,6 +377,31 @@ For new items to be visualised they must have their label appended to ObjectID e
 
 ### Brain (/sorter_ws/src/brain)
 In brain we setup the connection between objects and their respective bins. In /src/Brain.cpp the Brain::get_goal_label function should be modified to match between object labels and their respective bins.
+
+## List of Dependencies
+### ROS Dependencies
+- ament_cmake
+- rclcpp
+- rclpy
+- std_msgs
+- geometry_msgs
+- sensor_msgs
+- std_srvs
+- cv_bridge
+- rosidl_default_generators
+- moveit_ros_planning_interface
+- tf2
+- tf2_ros
+- tf2_geometry_msgs
+
+### C++
+- Eigen3
+
+### Python
+- opencv-python
+- opencv-contrib-python (only for retired object detection code)
+- numpy
+- ultralytics
 
 # Running the System
 ## **Running on the Real UR5e**
