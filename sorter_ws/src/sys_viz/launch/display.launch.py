@@ -20,7 +20,8 @@ def get_realsense_launch():
         launch_arguments={
             'align_depth.enable': 'true',
             'enable_color': 'true',
-            'enable_depth': 'true'
+            'enable_depth': 'true',
+            'pointcloud.enable': 'true'
         }.items()
     )
 

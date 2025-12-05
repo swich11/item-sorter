@@ -13,7 +13,7 @@
   <joint name="ur5_end_effector_coupler_joint" type="fixed">
     <parent link="wrist_3_link"/>
     <child link="end_effector_mount_connector"/>
-    <origin xyz="0 0 0.005" rpy="1.57 0 0"/>
+    <origin xyz="0 0 0.01" rpy="1.57 0 0"/>
   </joint>
 
 </robot>

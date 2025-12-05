@@ -26,6 +26,7 @@ ament_target_dependencies(
   interfaces
   geometry_msgs
   std_msgs
+  sensor_msgs
 )
 install(TARGETS 
   planner

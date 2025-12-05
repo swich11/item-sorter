@@ -158,7 +158,8 @@ class ItemDetector(Node):
                                 mask = cv2.inRange(bounding_img, ColourMasks.BLUE.lower, ColourMasks.BLUE.upper)
                         # average pixel positions in the mask + add to labelled pose
                         vs, us = np.where(mask)
-                        Z = bounding_depth[vs, us]
+                        to_centre_offset = 40.0 if "Bucket" in l_pose.label else 20.0
+                        Z = bounding_depth[vs, us] + to_centre_offset
                         l_pose.pose.position.x = np.average((x1 + us - self.ppx) * Z / self.fx) / 1000.0
                         l_pose.pose.position.y = np.average((y1 + vs - self.ppy) * Z / self.fy) / 1000.0
                         l_pose.pose.position.z = np.average(Z) / 1000.0
@@ -170,7 +171,7 @@ class ItemDetector(Node):
                             conf_dict[l_pose.label] = (float(boxes.conf[i]), l_pose) # type: ignore
         for item in conf_dict.values():
             if item[1] is not None:
-                l_pose_array.poses.append(item[1])
+                l_pose_array.poses.append(item[1]) # type: ignore
         self.object_pub.publish(l_pose_array) # just publish all objects in one array, this can be filtered by the brain
 
 

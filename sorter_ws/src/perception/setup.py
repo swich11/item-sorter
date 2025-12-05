@@ -24,7 +24,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'item-detector = perception.ItemDetector:main'
+            'item-detector = perception.ItemDetector:main',
+            'test-detector = perception.TestDetector:main'
         ],
     },
 )

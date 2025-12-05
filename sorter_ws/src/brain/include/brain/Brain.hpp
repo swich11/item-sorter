@@ -42,13 +42,13 @@ public:
 
     void update_pose(const geometry_msgs::msg::PoseStamped &pose) {
         // Check difference between timestamps < 0.5s
-        if (rclcpp::Time(pose.header.stamp) - rclcpp::Time(last_header.stamp) 
-                > rclcpp::Duration(0, 500000000)) {
-            // flush moving average -> confidence goes to 0.0
-            elements_filled = 0;
-            prev_points.fill(Eigen::Vector3d(0.0, 0.0, 0.0));
-            prev_orients.fill(Eigen::Vector4d(0.0, 0.0, 0.0, 0.0));
-        }
+        // if (rclcpp::Time(pose.header.stamp) - rclcpp::Time(last_header.stamp) 
+        //         > rclcpp::Duration(0, 500000000)) {
+        //     // flush moving average -> confidence goes to 0.0
+        //     elements_filled = 0;
+        //     prev_points.fill(Eigen::Vector3d(0.0, 0.0, 0.0));
+        //     prev_orients.fill(Eigen::Vector4d(0.0, 0.0, 0.0, 0.0));
+        // }
         last_header = pose.header;
 
         Eigen::Vector3d point(
@@ -189,6 +189,7 @@ public:
 
 private:
     bool running;
+    bool moving;
     Semaphore item_queue_sem{0};
     std::thread move_call_thread;
     std::queue<std::string> item_queue;

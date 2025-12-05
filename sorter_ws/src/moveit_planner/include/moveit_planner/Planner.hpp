@@ -16,6 +16,7 @@
 #include <moveit_msgs/msg/planning_scene.h>
 #include <geometry_msgs/msg/pose.hpp>
 #include <std_msgs/msg/empty.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
 
 #include "interfaces/srv/move.hpp"
 
@@ -24,12 +25,14 @@ constexpr double POSITION_PRECISION = 0.01; // 1 cm
 constexpr double ORIENTATION_PRECISION = 5.0/180.0 * M_PI; // 5 degrees
 constexpr double GRIPPER_HEIGHT = 0.16;
 constexpr double GRIPPER_OFFSET = 0.1;
-constexpr double GRAB_OFFSET = 0.01;
+constexpr double GRAB_OFFSET = 0.03;
 
 
 class Planner : public rclcpp::Node {
     public:
         Planner();
+
+        void initialiseMoveIt();
 
     private:
         moveit_msgs::msg::CollisionObject generateCollisionObject(
@@ -46,7 +49,9 @@ class Planner : public rclcpp::Node {
 
         void cancelMoveCallback(const std_msgs::msg::Empty&);
 
-        bool move(std::shared_ptr<interfaces::srv::Move::Response> res, bool grasp);
+        void jointStateCallback(const sensor_msgs::msg::JointState &joint_state);
+
+        bool move(std::shared_ptr<interfaces::srv::Move::Response> res, bool grasp, geometry_msgs::msg::Pose goal);
 
         void asyncMoveHome();
 
@@ -54,7 +59,9 @@ class Planner : public rclcpp::Node {
 
         void ungrasp();
 
-        void setPathConstraints();
+        moveit_msgs::msg::Constraints getPathConstraints();
+
+        moveit_msgs::msg::Constraints getGripPathConstraints();
 
         bool isPoseClose(const geometry_msgs::msg::Pose &a,
                          const geometry_msgs::msg::Pose &b);
@@ -69,8 +76,10 @@ class Planner : public rclcpp::Node {
         std::shared_ptr<planning_scene_monitor::PlanningSceneMonitor> planning_scene_monitor;
         std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_interface;
 
+        rclcpp::CallbackGroup::SharedPtr planner_callback_group;
         rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pose_subscription;
         rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr cancel_move_subscription;
+        rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_subscription;
         rclcpp::Service<interfaces::srv::Move>::SharedPtr move_server;
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr arduino_pub;    // publisher to send commands to Arduino
         
@@ -78,4 +87,8 @@ class Planner : public rclcpp::Node {
         geometry_msgs::msg::Pose home_pose;
         bool grabbed_home_pose;
         bool move_canceled;
+        bool received_joint_states;
+
+        moveit_msgs::msg::Constraints regular_constraints;
+        std::map<std::string, double> last_joint_values;
 };
