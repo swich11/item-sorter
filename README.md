@@ -174,10 +174,9 @@ The following images and diagrams illustrate the design.
 <div align="center">
   <img src="images/gripper.jpeg" width="250">
 </div>
-![Demo of Gripper](images/grip_gif.gif)
-<video width="300" controls>
-  <source src="images/gripper_moving.mp4" type="video/mp4">
-</video>
+![alt text](https://github.com/swich11/item-sorter/blob/readme/images/grip_gif.gif)
+
+
 
 ## System Visualisation
 The system uses Rviz2 for visualisation ensuring that any users are able to clearly observe the state of the workspace and the robot. Visualised in our custom Rviz config are:
