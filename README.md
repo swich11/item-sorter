@@ -235,52 +235,8 @@ The Universal Robots libraries need to be installed to drive the UR5e arm and th
 
 ## **RealSense D435 Instructions**
 Install the depth camera drivers and ros wrapper:<pre>sudo apt install ros-humble-librealsense2* ros-humble-realsense2-*</pre>
-
-## Hardware setup
-### UR5e 
-The UR5e box has an ethernet output, connected to it via this output. Your ethernet connection should be configured as per the setup instructions in your lab location. 
-
-Setup the robot side to connect to the *ur_robot_driver* on your machine. Instructions [here](https://github.com/UniversalRobots/Universal_Robots_ROS_Driver/blob/master/ur_robot_driver/doc/install_urcap_e_series.md).
-
-
-### RealSense Camera
-Connect to your machine via the usb-c port on the real-sense camera.
-
-### Teensy & End Effector
-Setup steps for teensy and end effector for UR5e:
-1. Attach end effector to UR5e connecting mount.
-2. Connect teensy to usb port on your machine.
-3. Connect servo wires to UR5e using phoenix connectors and the custom mount.
-4. Connect UR5e desktop power/interface box to the teensy to complete the circuit for servo.
-
-## Robot Calibration
-To calibrate the robot controller run the following **after** connecting to the robot via ethernet.
-<pre>ros2 launch ur_calibration calibration_correction.launch.py \
-robot_ip:=&lt;robot_ip&gt; target_filename:="${HOME}/my_robot_calibration.yaml"</pre>
-## List of Dependencies
-### ROS Dependencies
-- ament_cmake
-- rclcpp
-- rclpy
-- std_msgs
-- geometry_msgs
-- sensor_msgs
-- std_srvs
-- cv_bridge
-- rosidl_default_generators
-- moveit_ros_planning_interface
-- tf2
-- tf2_ros
-- tf2_geometry_msgs
-
-### C++
-- Eigen3
-
-### Python
-- opencv-python
-- opencv-contrib-python (only for retired object detection code)
-- numpy
-- ultralytics
+### Python Dependencies
+To install the python dependencies: <pre>pip install -r requirements.txt</pre>
 
 
 ### YOLO Model
@@ -304,6 +260,29 @@ The conf_dect in perception/ItemDetector.py should be modified to suit new objec
         ...
     }
 </pre>
+
+## Hardware setup
+### UR5e 
+The UR5e box has an ethernet output, connected to it via this output. Your ethernet connection should be configured as per the setup instructions in your lab location. 
+
+Setup the robot side to connect to the *ur_robot_driver* on your machine. Instructions [here](https://github.com/UniversalRobots/Universal_Robots_ROS_Driver/blob/master/ur_robot_driver/doc/install_urcap_e_series.md).
+
+
+### RealSense Camera
+Connect to your machine via the usb-c port on the real-sense camera.
+
+### Teensy & End Effector
+Setup steps for teensy and end effector for UR5e:
+1. Attach end effector to UR5e connecting mount.
+2. Connect teensy to usb port on your machine.
+3. Connect servo wires to UR5e using phoenix connectors and the custom mount.
+4. Connect UR5e desktop power/interface box to the teensy to complete the circuit for servo.
+
+### Robot Calibration
+To calibrate the robot controller run the following **after** connecting to the robot via ethernet.
+<pre>ros2 launch ur_calibration calibration_correction.launch.py \
+robot_ip:=&lt;robot_ip&gt; target_filename:="${HOME}/my_robot_calibration.yaml"</pre>
+
 ### Visualisation (/sorter_ws/src/visualisation)
 As mentioned earlier, the stl files of custom objects can be found in the /meshes directory, and can be appended to as needed.
 
