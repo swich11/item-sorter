@@ -262,7 +262,7 @@ The following images and diagrams illustrate the design.
 ## System Visualisation
 The system uses Rviz2 for visualisation ensuring that any users are able to clearly observe the state of the workspace and the robot. Visualised in our custom Rviz config are:
 - The UR5e robot
-- Custom End-effector attached to UR5e wrist. Visually displays whether the clamp is open or closed.
+- Custom End-effector attached to UR5e wrist for visual feedback
 - Workspace Surface and other safety planes visualised as collision objects.
 - RealSense Camera visualised via its transform
 - The camera colour image with machine learning model output displayed, including bounding boxes, classifications and confidences for each detection. 
