@@ -2,7 +2,87 @@
 Item Picker for the UR5e specifically built for use in the MTRN4231 labs.
 
 # Table of Contents
-[TODO] Include a Table of Contents at the start of your README (this can be auto-generated). 
+- [UR5e Item Sorter](#ur5e-item-sorter)
+- [Table of Contents](#table-of-contents)
+- [Project Overview](#project-overview)
+  - [Customer Problem](#customer-problem)
+  - [Robot Functionality](#robot-functionality)
+  - [Demo Video](#demo-video)
+- [System Architecture](#system-architecture)
+  - [ROS Graph](#ros-graph)
+  - [System Behaviour State Diagram](#system-behaviour-state-diagram)
+  - [Custom messages and services](#custom-messages-and-services)
+    - [LabelledPose.msg](#labelledposemsg)
+    - [LabelledPoseArray.msg](#labelledposearraymsg)
+    - [Move.srv](#movesrv)
+    - [TransformLookup.srv](#transformlookupsrv)
+    - [TransformLookupArray.srv](#transformlookuparraysrv)
+- [Technical Components](#technical-components)
+  - [Computer Vision](#computer-vision)
+    - [YOLO training](#yolo-training)
+  - [Custom End-Effector](#custom-end-effector)
+  - [System Visualisation](#system-visualisation)
+- [Installation and Setup](#installation-and-setup)
+  - [System Requirements](#system-requirements)
+  - [Installation](#installation)
+  - [**Moveit Setup Instructions**](#moveit-setup-instructions)
+  - [**UR5e Setup Instructions**](#ur5e-setup-instructions)
+  - [**RealSense D435 Instructions**](#realsense-d435-instructions)
+  - [Hardware setup](#hardware-setup)
+    - [UR5e](#ur5e)
+    - [RealSense Camera](#realsense-camera)
+    - [Teensy \& End Effector](#teensy--end-effector)
+  - [Robot Calibration](#robot-calibration)
+  - [New Object Calibration](#new-object-calibration)
+    - [YOLO Model](#yolo-model)
+    - [Perception (/sorter\_ws/src/perception)](#perception-sorter_wssrcperception)
+    - [Visualisation (/sorter\_ws/src/visualisation)](#visualisation-sorter_wssrcvisualisation)
+    - [Brain (/sorter\_ws/src/brain)](#brain-sorter_wssrcbrain)
+  - [List of Dependencies](#list-of-dependencies)
+    - [ROS Dependencies](#ros-dependencies)
+    - [C++](#c)
+    - [Python](#python)
+- [Running the System](#running-the-system)
+  - [**Running on the Real UR5e**](#running-on-the-real-ur5e)
+  - [**Running in Simulation**](#running-in-simulation)
+  - [Launch commands](#launch-commands)
+  - [Expected outputs](#expected-outputs)
+  - [Common Troubleshooting](#common-troubleshooting)
+- [Results](#results)
+- [Discussion and Future Work](#discussion-and-future-work)
+  - [Iterations and Development Challenges](#iterations-and-development-challenges)
+    - [Object Detection](#object-detection)
+    - [MoveIt](#moveit)
+  - [Novelty of Existing Solution](#novelty-of-existing-solution)
+  - [Directions for Future Work](#directions-for-future-work)
+    - [Architecture Reworks](#architecture-reworks)
+    - [YOLO model](#yolo-model-1)
+    - [Perception](#perception)
+    - [Gripper](#gripper)
+    - [Visualisation](#visualisation)
+    - [Closed-Loop Behaviour](#closed-loop-behaviour)
+- [Contributors and Roles](#contributors-and-roles)
+  - [Julian Britton](#julian-britton)
+  - [Bryson Chen](#bryson-chen)
+  - [Matthew Viegas](#matthew-viegas)
+- [Repository Structure](#repository-structure)
+  - [sorter\_ws](#sorter_ws)
+    - [src/brain](#srcbrain)
+    - [src/interfaces](#srcinterfaces)
+    - [src/moveit\_config](#srcmoveit_config)
+    - [src/moveit\_planner](#srcmoveit_planner)
+    - [src/perception](#srcperception)
+    - [src/robot\_description](#srcrobot_description)
+    - [src/sys\_viz](#srcsys_viz)
+    - [src/teensy\_pkg](#srcteensy_pkg)
+    - [src/transforms](#srctransforms)
+    - [src/visualisation](#srcvisualisation)
+  - [unused\_pkgs](#unused_pkgs)
+    - [object\_detect](#object_detect)
+  - [ur\_gazebo](#ur_gazebo)
+  - [ws\_moveit2](#ws_moveit2)
+- [References and Acknowledgements](#references-and-acknowledgements)
+
 
 # Project Overview
 ## Customer Problem
@@ -23,8 +103,7 @@ The simplified workflow will consist of:
 - Displaying the current state of the system and trajectories using RViz2. 
 
 ## Demo Video
-(OneDrive Link?)
-[TODO]
+Demo videos are availble [HERE](https://unsw-my.sharepoint.com/:f:/g/personal/z5308662_ad_unsw_edu_au/EkcEuQ6GF6NBoAji4lgktqYBNZ-D3-GuiaB03AXQboohSQ?e=0i0dxh "ITEM SORTER DEMO VIDEOS")
 
 # System Architecture
 The item-sorting system comprised of the following packages:
@@ -103,44 +182,44 @@ The consumer thread dequeues each pairing, double checks its confidence is still
 ## Custom messages and services
 ### LabelledPose.msg
 Message type to represent labelled, detected objects and their pose. Used in brain, perception and visualisation.
-<pre>
+```
 string label
 geometry_msgs/Pose pose
-</pre>
+```
 ### LabelledPoseArray.msg
 Message type to represent a full set of LabelledPose messages. Used in brain, perception and visualisation.
-<pre>
+```
 std_msgs/Header header
 LabelledPose[] poses
-</pre>
+```
 
 ### Move.srv
 The **MoveIt Planner** node exposes a service using this service description. The *pose* is a goal pose for the planner to reach, *grasp* denotes to the planner whether it should grasp or ungrasp at the end of its path. The response contains a success bool and an error message on failure.
-<pre>
+```
 bool grasp
 geometry_msgs/Pose pose
 ---
 bool success
 string message
-</pre>
+```
 ### TransformLookup.srv
 This service is exposed by the **transform node** to perform transform lookups between frames. The request contains the pose to be transfromed and a frame id *to_link* to transform to. The response has a success boolean and the transformed pose if succesful.
-<pre>
+```
 geometry_msgs/PoseStamped pose
 string to_link
 ---
 bool success
 geometry_msgs/PoseStamped pose
-</pre>
+```
 ### TransformLookupArray.srv
 As for TransformLookup but for batches of poses from the same starting frame to the same destination frame.
-<pre>
+```
 geometry_msgs/PoseStamped[] poses
 string to_link
 ---
 bool success
 geometry_msgs/PoseStamped[] poses
-</pre>
+```
 
 # Technical Components
 ## Computer Vision
@@ -174,10 +253,9 @@ The following images and diagrams illustrate the design.
 <div align="center">
   <img src="images/gripper.jpeg" width="250">
 </div>
-![Demo of Gripper](images/grip_gif.gif)
-<video width="300" controls>
-  <source src="images/gripper_moving.mp4" type="video/mp4">
-</video>
+![alt text](https://github.com/swich11/item-sorter/blob/readme/images/grip_gif.gif)
+
+
 
 ## System Visualisation
 The system uses Rviz2 for visualisation ensuring that any users are able to clearly observe the state of the workspace and the robot. Visualised in our custom Rviz config are:
@@ -222,7 +300,7 @@ sudo apt update && rosdep install -r --from-paths . --ignore-src --rosdistro $RO
 2. Build the workspace. If you have more than 16Gb of system RAM:<pre>cd ws_moveit2
 colcon build --mixin release</pre>
 Less than 16Gb of system RAM:<pre>cd ws_moveit2
-colcon build --mixin release --executor sequential
+colcon build --mixin release --executor sequential</pre>
 
 
 
@@ -239,6 +317,7 @@ Install the depth camera drivers and ros wrapper:<pre>sudo apt install ros-humbl
 To install the python dependencies: <pre>pip install -r requirements.txt</pre>
 
 
+## New Object Calibration
 ### YOLO Model
 The existing YOLO model was trained specifically for the test environment and specific objects used. For implementation, with other items a new YOLO model will have to be trained, and referenced instead of the existing model in the perception node in /sorter_ws/src/perception.
 
@@ -298,6 +377,31 @@ For new items to be visualised they must have their label appended to ObjectID e
 
 ### Brain (/sorter_ws/src/brain)
 In brain we setup the connection between objects and their respective bins. In /src/Brain.cpp the Brain::get_goal_label function should be modified to match between object labels and their respective bins.
+
+## List of Dependencies
+### ROS Dependencies
+- ament_cmake
+- rclcpp
+- rclpy
+- std_msgs
+- geometry_msgs
+- sensor_msgs
+- std_srvs
+- cv_bridge
+- rosidl_default_generators
+- moveit_ros_planning_interface
+- tf2
+- tf2_ros
+- tf2_geometry_msgs
+
+### C++
+- Eigen3
+
+### Python
+- opencv-python
+- opencv-contrib-python (only for retired object detection code)
+- numpy
+- ultralytics
 
 # Running the System
 ## **Running on the Real UR5e**
