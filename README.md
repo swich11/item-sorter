@@ -29,7 +29,6 @@ Item Picker for the UR5e specifically built for use in the MTRN4231 labs.
   - [**UR5e Setup Instructions**](#ur5e-setup-instructions)
   - [**RealSense D435 Instructions**](#realsense-d435-instructions)
     - [Python Dependencies](#python-dependencies)
-  - [New Object Calibration](#new-object-calibration)
     - [YOLO Model](#yolo-model)
     - [Perception (/sorter\_ws/src/perception)](#perception-sorter_wssrcperception)
   - [Hardware setup](#hardware-setup)
@@ -39,16 +38,9 @@ Item Picker for the UR5e specifically built for use in the MTRN4231 labs.
     - [Robot Calibration](#robot-calibration)
     - [Visualisation (/sorter\_ws/src/visualisation)](#visualisation-sorter_wssrcvisualisation)
     - [Brain (/sorter\_ws/src/brain)](#brain-sorter_wssrcbrain)
-  - [List of Dependencies](#list-of-dependencies)
-    - [ROS Dependencies](#ros-dependencies)
-    - [C++](#c)
-    - [Python](#python)
 - [Running the System](#running-the-system)
   - [**Running on the Real UR5e**](#running-on-the-real-ur5e)
   - [**Running in Simulation**](#running-in-simulation)
-  - [Launch commands](#launch-commands)
-  - [Expected outputs](#expected-outputs)
-  - [Common Troubleshooting](#common-troubleshooting)
 - [Results](#results)
 - [Discussion and Future Work](#discussion-and-future-work)
   - [Iterations and Development Challenges](#iterations-and-development-challenges)
@@ -82,7 +74,8 @@ Item Picker for the UR5e specifically built for use in the MTRN4231 labs.
     - [object\_detect](#object_detect)
   - [ur\_gazebo](#ur_gazebo)
   - [ws\_moveit2](#ws_moveit2)
-- [References and Acknowledgements](#references-and-acknowledgements)
+- [Acknowledgements](#acknowledgements)
+- [References](#references)
 
 
 # Project Overview
@@ -492,9 +485,9 @@ Additional points of work for closed-loop behaviour would include:
 ## Julian Britton
 Julian's contributions involved writing the brain, moveit_planner, and transforms nodes, annotating data and training the YOLO model used and full system integration. Work was performed to debug, and integrate ROS code including that in the perception, visualisation, transforms, brain, moveit_planner, and sys_viz packages. He also contributed to testing all of the robot behaviours.
 ## Bryson Chen
-Bryson's key contributions revolves around the design and integration of the custom end-effector into the physical robot and ROS architecture. Bryson designed the parallel jaw gripper's components in fusion 360, and used those STL files to define the robot in a URDF file for visualisation in RViz. Bryson had also worked on creating launch files for easier use. 3
+Bryson's key contributions revolves around the design and integration of the custom end-effector into the physical robot and ROS architecture. Bryson designed the parallel jaw gripper's components in fusion 360, and used those STL files to define the robot in a URDF file for visualisation in RViz. Bryson had also worked on creating launch files for easier use.
 ## Matthew Viegas
-Matthew's key contributions revolve around the development of the object detection pipelines and testing with the RealSense Camera. Also implementing the use of custom markers with the visualisation.
+Matthew's key contributions revolve around the development of the object detection pipelines and testing with the RealSense Camera. Also worked on initial visualisations and also implementing the use of custom markers with the visualisation. Assisted with YOLO model training through Roboflow.
 
 # Repository Structure
 ## sorter_ws
@@ -526,7 +519,10 @@ Old perception package which used Aruco markers, colour thresholding and size ap
 ## ur_gazebo
 ## ws_moveit2
 
-# References and Acknowledgements
+# Acknowledgements
+Special thanks to design and testing assistence from MTRN4231 Lecturer Will Midgley and demonstrators Saba Ghorbani Barzegar, David Nie, Mitchell Torok and Alex Cronin
+
+# References
 [TODO]
 - UR5e model
 - UR5e gazebo
