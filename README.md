@@ -27,19 +27,84 @@ The simplified workflow will consist of:
 [TODO]
 
 # System Architecture
-## rqt Graph
-[TODO]
+The item-sorting system comprised of the following packages:
+  1. Perception
+  2. Visualisation
+  3. Transforms
+  4. Brain
+  5. MoveIt Planner
+  6. Teesny Package
+  7. Robot Description
+  8. Sys Viz
+  9. Interfaces
 
-## Closed-Loop System Behaviour State Diagram
-[TODO]
+The prescribed functionality and included nodes for each package are outlined as follows:
+
+**Perception**
+
+The percepton package has 2 nodes included. An **item-detector**, and **test-detector** node. The **item-detector** node receives color and aligned depth images from the realsense camera. It performs computer vision operations using YOLO and colour masking segmentation to produce depth estimates for detected objects and publishes the detected poses with labels.
+
+The **test-detector** node is a test node that can be used when running in simulation. It is a rudimentary replacement for the **item-detector** that publishes pre-determined objects. This allows for basic tests to be run on the system as a whole in a simulated environment.
+
+
+**Visualisation**
+
+The visualisation package contains the **visualisation_node** and some STL meshes for the detected objects. It's role is to publish and keep state for a MarkerArray which contains each detected object, and the buckets.
+
+
+**Transforms**
+
+The **transforms** package is the interface with TF2. It has 2 open service calls. One denoted as '/pose_lookup' takes a PoseStamped and desired transform frame, performs the transform lookup and returns the transformed pose. Another, denoted as '/pose_lookup_array' handles the same task but for batches of poses which have the same transform frame.
+
+
+**Brain**
+
+The **brain** package contains the **brain** node. It receives object poses and labels from the perception nodes and runs the underlying logic to decide what the robot should do.
+
+
+**MoveIt Planner**
+
+The **MoveIt Planner** package receives move requests from the **brain** on the '/moveit_planner/move' service, interfaces with MoveIt, and publishes commands to the arduino gripper interface. The actions of the planning node and the brain node are tightly interlinked.
+
+
+**Teensy Package**
+
+The **teensy package** exposes the serial inteface of the Teensy used to control the servo motors on the gripper. It subscribes to the '/arduino_cmds' topic and passes commands from this topic to the serial interface.
+
+
+**Robot Description**
+
+The **robot description** package provides the visualisation description for the robot arm in RViz. Specifically it adds the sorting gripper to the visualised arm. This visualisation description is used by the Moveit Visualisation plugin.
+
+
+**Sys Viz**
+
+Contrary to the **Sys Viz** name, this package contains launch files for the system.
+
+
+**Interfaces**
+
+This package contains the custom ROS interfaces used in the system.
+
+
+
+## ROS Graph
+![ros graph](images/item-sorter.drawio.png)
+
+
+
+## System Behaviour State Diagram
+The key behaviour for the item-sorter is it's closed loop logic shown. As labelled object poses are passed from the Item Detector, they are sorted in the brain node which stores a moving average filter for each object that has been detected. The brain runs 2 threads: a producer and a consumer that read the confidence values of this moving average for each object-bucket pairing (these are calculated from the normalised variance of the moving average). The producer decides to enqueue high confidence pairings and signals the planner to cancel the current command if it was for a given low confidence pairing. 
+
+The consumer thread dequeues each pairing, double checks its confidence is still good after the dequeue, then sends a move command to the planner node. It will do this in a loop, waiting for the moveit node to finish, cancel, or fail its previous movement.
+
+![closed-loop](images/Closed-Loop.drawio.png)
 
 ## Custom messages and services
 ### LabelledPose.msg
-Message type to represent individual detected objects and their pose. Used in brain, perception and visualisation.
+Message type to represent labelled, detected objects and their pose. Used in brain, perception and visualisation.
 <pre>
 string label
-string colour
-string shape
 geometry_msgs/Pose pose
 </pre>
 ### LabelledPoseArray.msg
@@ -50,6 +115,7 @@ LabelledPose[] poses
 </pre>
 
 ### Move.srv
+The **MoveIt Planner** node exposes a service using this service description. The *pose* is a goal pose for the planner to reach, *grasp* denotes to the planner whether it should grasp or ungrasp at the end of its path. The response contains a success bool and an error message on failure.
 <pre>
 bool grasp
 geometry_msgs/Pose pose
@@ -58,6 +124,7 @@ bool success
 string message
 </pre>
 ### TransformLookup.srv
+This service is exposed by the **transform node** to perform transform lookups between frames. The request contains the pose to be transfromed and a frame id *to_link* to transform to. The response has a success boolean and the transformed pose if succesful.
 <pre>
 geometry_msgs/PoseStamped pose
 string to_link
@@ -66,6 +133,7 @@ bool success
 geometry_msgs/PoseStamped pose
 </pre>
 ### TransformLookupArray.srv
+As for TransformLookup but for batches of poses from the same starting frame to the same destination frame.
 <pre>
 geometry_msgs/PoseStamped[] poses
 string to_link
