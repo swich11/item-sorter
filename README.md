@@ -188,7 +188,9 @@ The system uses Rviz2 for visualisation ensuring that any users are able to clea
 - The camera colour image with machine learning model output displayed, including bounding boxes, classifications and confidences for each detection. 
 - All objects and buckets visualised in the 3d space via custom markers utilising stl meshes.
 
-[TODO] [Include pic of final RViz Config]
+<div align="center">
+  <img src="images/rviz.png" width="1000">
+</div>
 
 ## Closed-Loop Operation
 [TODO]
