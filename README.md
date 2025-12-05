@@ -98,7 +98,7 @@ The simplified workflow will consist of:
 - Displaying the current state of the system and trajectories using RViz2. 
 
 ## Demo Video
-Demo videos are availble [HERE](https://unsw-my.sharepoint.com/:f:/g/personal/z5308662_ad_unsw_edu_au/EkcEuQ6GF6NBoAji4lgktqYBNZ-D3-GuiaB03AXQboohSQ?e=0i0dxh "ITEM SORTER DEMO VIDEOS")
+Demo videos are available [HERE](https://unsw-my.sharepoint.com/:f:/g/personal/z5308662_ad_unsw_edu_au/EkcEuQ6GF6NBoAji4lgktqYBNZ-D3-GuiaB03AXQboohSQ?e=0i0dxh "ITEM SORTER DEMO VIDEOS")
 
 # System Architecture
 The item-sorting system comprised of the following packages:
@@ -123,7 +123,7 @@ The **test-detector** node is a test node that can be used when running in simul
 
 **Visualisation**
 
-The visualisation package contains the **visualisation_node** and some STL meshes for the detected objects. It's role is to publish and keep state for a MarkerArray which contains each detected object, and the buckets.
+The visualisation package contains the **visualisation_node** and some STL meshes for the detected objects. Its role is to publish and keep state for a MarkerArray which contains each detected object, and the buckets.
 
 
 **Transforms**
@@ -168,7 +168,7 @@ This package contains the custom ROS interfaces used in the system.
 
 
 ## System Behaviour State Diagram
-The key behaviour for the item-sorter is it's closed loop logic shown. As labelled object poses are passed from the Item Detector, they are sorted in the brain node which stores a moving average filter for each object that has been detected. The brain runs 2 threads: a producer and a consumer that read the confidence values of this moving average for each object-bucket pairing (these are calculated from the normalised variance of the moving average). The producer decides to enqueue high confidence pairings and signals the planner to cancel the current command if it was for a given low confidence pairing. 
+The key behaviour for the item-sorter is its closed loop logic shown. As labelled object poses are passed from the Item Detector, they are sorted in the brain node which stores a moving average filter for each object that has been detected. The brain runs 2 threads: a producer and a consumer that read the confidence values of this moving average for each object-bucket pairing (these are calculated from the normalised variance of the moving average). The producer decides to enqueue high confidence pairings and signals the planner to cancel the current command if it was for a given low confidence pairing. 
 
 The consumer thread dequeues each pairing, double checks its confidence is still good after the dequeue, then sends a move command to the planner node. It will do this in a loop, waiting for the moveit node to finish, cancel, or fail its previous movement.
 
@@ -198,7 +198,7 @@ bool success
 string message
 ```
 ### TransformLookup.srv
-This service is exposed by the **transform node** to perform transform lookups between frames. The request contains the pose to be transfromed and a frame id *to_link* to transform to. The response has a success boolean and the transformed pose if succesful.
+This service is exposed by the **transform node** to perform transform lookups between frames. The request contains the pose to be transfromed and a frame id *to_link* to transform to. The response has a success boolean and the transformed pose if successful.
 ```
 geometry_msgs/PoseStamped pose
 string to_link
@@ -218,15 +218,15 @@ geometry_msgs/PoseStamped[] poses
 
 # Technical Components
 ## Computer Vision
-The vision pipeline begins with a pre-existing realsense camera node which continously publishes the colour image, aligned depth image, intriniscs from the camera, as well as some helpful transforms.
+The vision pipeline begins with a pre-existing realsense camera node which continously publishes the colour image, aligned depth image, intrinisics from the camera, as well as some helpful transforms.
 
-The perception node subscribes to both image topics and activates the main logic as a callback whenever receiving a new colour image. When recieved the node;
+The perception node subscribes to both image topics and activates the main logic as a callback whenever receiving a new colour image. When received the node;
 - Runs the colour image through our custom YOLO model to find objects within view. 
 - Annotate a copy of the original image with the model output for visualisation.
 - For each detection, we check its confidence is above the expected threshold.
-- Find the object's exact presence in the bounding box using colour thresholding with the detected objects expected tones.
-- Use this colour mask, in combination with the corresponding points in the depth image, to transform all points in the detection into 3d space from the camera perspective.
-- Take an average of all these points to output a centroid of the object in 3d space.
+- Find the object's exact presence in the bounding box using colour thresholding with the detected objects' expected tones.
+- Use this colour mask, in combination with the corresponding points in the depth image, to transform all points in the detection into 3D space from the camera perspective.
+- Take an average of all these points to output a centroid of the object in 3D space.
 - If the object is meant to be unique (i.e. a bin or tray), we keep track of the observation with the highest confidence to ensure only this one is published in final message.
 - Build custom message type LabelledPoseArray with all processed observations and publish as 'camera/objects/labelled_pose_array'
 
@@ -265,7 +265,7 @@ The system uses Rviz2 for visualisation ensuring that any users are able to clea
 - Workspace Surface and other safety planes visualised as collision objects.
 - RealSense Camera visualised via its transform
 - The camera colour image with machine learning model output displayed, including bounding boxes, classifications and confidences for each detection. 
-- All objects and buckets visualised in the 3d space via custom markers utilising stl meshes.
+- All objects and buckets visualised in the 3D space via custom markers utilising stl meshes.
 
 <div align="center">
   <img src="images/rviz.png" width="500">
@@ -285,7 +285,7 @@ The item sorter uses an Intel RealSense depth camera, a Universal Robots UR5e ar
 
 
 ## **Moveit Setup Instructions**
-To calculate robot arm trajectories MoveIt is used. It is built in it's own directory. To build:
+To calculate robot arm trajectories MoveIt is used. It is built in its own directory. To build:
 
 1. Install Dependencies <pre>sudo apt install python3-rosdep
 sudo rosdep init
@@ -337,7 +337,7 @@ The colour_dict in perception/ItemDetector.py should be modified to suit new obj
         ...
     }
 </pre>
-The conf_dect in perception/ItemDetector.py should be modified to suit new objects in the form
+The conf_dict in perception/ItemDetector.py should be modified to suit new objects in the form
 <pre>
     conf_dict = {
         "[OBJECT LABEL]" : (0.0, None),
@@ -421,19 +421,19 @@ This allows us to launch with the provided launch file to test:
 <pre>ros2 launch ur_simulation_gazebo ur_sim_moveit.launch.py</pre>
 
 To run the item-sorter do:
-<pre>ros2 launch sys_viz auziliary_sim.launch.py</pre>
+<pre>ros2 launch sys_viz auxiliary_sim.launch.py</pre>
 This will launch with the **test-detector** node in place of the **item-detector** which publishes objects in set positions.
 
 # Results
-As could be seen in the demo video, the final solution is capable of executing the full closed-loop behavior loop as intended with minor issues. Being able to operate with objects on the flat worksurface, assuming no obstacles capable of physcial interference.
+As could be seen in the demo video, the final solution is capable of executing the full closed-loop behavior loop as intended with minor issues. Being able to operate with objects on the flat worksurface, assuming no obstacles capable of physical interference.
 
-The perception node successfully identified all circualar and square items the vast majority of the time even with partial obstruction. However, the trained model due to insufficient data confused hexagonal and cubic shapes. The node was optimal in locating items towards the middle space of the work space succesfully hitting our target of locating within 1cm, but would begin to drift the further away from this section it was moved (including vertically). 
+The perception node successfully identified all circular and square items the vast majority of the time even with partial obstruction. However, the trained model due to insufficient data confused hexagonal and cubic shapes. The node was optimal in locating items towards the middle space of the work space successfully hitting our target of locating within 1cm, but would begin to drift the further away from this section it was moved (including vertically). 
 
-The visualisation was responsive to all physical changes and well represented the physical state, with only minor issues. These being the semi-clustered annotated camera view and the minor locational issues caused my drift in perception.
+The visualisation was responsive to all physical changes and well represented the physical state, with only minor issues. These being the semi-clustered annotated camera view and the minor locational issues caused by drift in perception.
 
 The gripper was greatly successful in being able to clamp around and release objects as needed. Only minor issues where items did tend to slip slightly from the grabbed position but never fell out. 
 
-The closed-loop behaviour goverened by brain was generally working as intended. Successfully ensuring that paths were valid and stopping whenever they were no longer deemed possible. When working perfectly the sytem operated pick and place trajectories well within the 5 sec goal originally set for the project. However, many trajectories output by the movement planner were rejected by the UR robot resulting in long wait times between robot movements. And an isssue was causing the gripper to release when grabbing objects before moving them to the bin, this is predicted to be a result of an unexpected response from the moveIt planner.
+The closed-loop behaviour governed by brain was generally working as intended. Successfully ensuring that paths were valid and stopping whenever they were no longer deemed possible. When working perfectly the sytem operated pick and place trajectories well within the 5 sec goal originally set for the project. However, many trajectories output by the movement planner were rejected by the UR robot resulting in long wait times between robot movements. And an issue was causing the gripper to release when grabbing objects before moving them to the bin, this is predicted to be a result of an unexpected response from the moveIt planner.
 
 Besides these issues, original goals for the project planned for the solution to be robust towards obstacles as well as capable of interacting within objects and bins wthin a 3d space and not just on the worksurface. These were the major novelties that were unable to be successfuly implemented.
 
