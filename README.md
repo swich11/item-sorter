@@ -376,7 +376,7 @@ Additions to be made to the RViz visualisation:
 ## Bryson Chen
 Bryson's key contributions revolves around the design and integration of the custom end-effector into the physical robot and ROS architecture. Bryson designed the parallel jaw gripper's components in fusion 360, and used those STL files to define the robot in a URDF file for visualisation in RViz. Bryson had also worked on creating launch files for easier use. 3
 ## Matthew Viegas
-[TODO]
+Matthew's key contributions revolve around the development of the object detection pipelines and testing with the RealSense Camera. Also implementing the use of custom markers with the visualisation.
 
 # Repository Structure
 ## sorter_ws
