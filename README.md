@@ -188,10 +188,10 @@ The system uses Rviz2 for visualisation ensuring that any users are able to clea
 - The camera colour image with machine learning model output displayed, including bounding boxes, classifications and confidences for each detection. 
 - All objects and buckets visualised in the 3d space via custom markers utilising stl meshes.
 
-[TODO] [Include pic of final RViz Config]
+<div align="center">
+  <img src="images/rviz.png" width="1000">
+</div>
 
-## Closed-Loop Operation
-[TODO]
 # Installation and Setup
 
 ## System Requirements
@@ -257,6 +257,30 @@ Setup steps for teensy and end effector for UR5e:
 To calibrate the robot controller run the following **after** connecting to the robot via ethernet.
 <pre>ros2 launch ur_calibration calibration_correction.launch.py \
 robot_ip:=&lt;robot_ip&gt; target_filename:="${HOME}/my_robot_calibration.yaml"</pre>
+## List of Dependencies
+### ROS Dependencies
+- ament_cmake
+- rclcpp
+- rclpy
+- std_msgs
+- geometry_msgs
+- sensor_msgs
+- std_srvs
+- cv_bridge
+- rosidl_default_generators
+- moveit_ros_planning_interface
+- tf2
+- tf2_ros
+- tf2_geometry_msgs
+
+### C++
+- Eigen3
+
+### Python
+- opencv-python
+- opencv-contrib-python (only for retired object detection code)
+- numpy
+- ultralytics
 
 
 ### YOLO Model
@@ -341,11 +365,20 @@ This will launch with the **test-detector** node in place of the **item-detector
 
 ## Common Troubleshooting
 
-# Results and Demonstration
-## Final Result (inc. quantitative result)
-[TODO]
-## Compare against design goals
-[TODO]
+# Results
+As could be seen in the demo video, the final solution is capable of executing the full closed-loop behavior loop as intended with minor issues. Being able to operate with objects on the flat worksurface, assuming no obstacles capable of physcial interference.
+
+The perception node successfully identified all circualar and square items the vast majority of the time even with partial obstruction. However, the trained model due to insufficient data confused hexagonal and cubic shapes. The node was optimal in locating items towards the middle space of the work space succesfully hitting our target of locating within 1cm, but would begin to drift the further away from this section it was moved (including vertically). 
+
+The visualisation was responsive to all physical changes and well represented the physical state, with only minor issues. These being the semi-clustered annotated camera view and the minor locational issues caused my drift in perception.
+
+The gripper was greatly successful in being able to clamp around and release objects as needed. Only minor issues where items did tend to slip slightly from the grabbed position but never fell out. 
+
+The closed-loop behaviour goverened by brain was generally working as intended. Successfully ensuring that paths were valid and stopping whenever they were no longer deemed possible. When working perfectly the sytem operated pick and place trajectories well within the 5 sec goal originally set for the project. However, many trajectories output by the movement planner were rejected by the UR robot resulting in long wait times between robot movements. And an isssue was causing the gripper to release when grabbing objects before moving them to the bin, this is predicted to be a result of an unexpected response from the moveIt planner.
+
+Besides these issues, original goals for the project planned for the solution to be robust towards obstacles as well as capable of interacting within objects and bins wthin a 3d space and not just on the worksurface. These were the major novelties that were unable to be successfuly implemented.
+
+Overall the solution is partially functional being able to fulfill the core design requirements in optimal cases, however with clear shortcomings that required additional time to resolve.
 
 # Discussion and Future Work
 ## Iterations and Development Challenges
@@ -395,7 +428,7 @@ Additions to be made to the RViz visualisation:
 ## Bryson Chen
 Bryson's key contributions revolves around the design and integration of the custom end-effector into the physical robot and ROS architecture. Bryson designed the parallel jaw gripper's components in fusion 360, and used those STL files to define the robot in a URDF file for visualisation in RViz. Bryson had also worked on creating launch files for easier use. 3
 ## Matthew Viegas
-[TODO]
+Matthew's key contributions revolve around the development of the object detection pipelines and testing with the RealSense Camera. Also implementing the use of custom markers with the visualisation.
 
 # Repository Structure
 ## sorter_ws
