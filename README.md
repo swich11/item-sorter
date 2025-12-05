@@ -192,8 +192,6 @@ The system uses Rviz2 for visualisation ensuring that any users are able to clea
   <img src="images/rviz.png" width="1000">
 </div>
 
-## Closed-Loop Operation
-[TODO]
 # Installation and Setup
 ## **Moveit Setup Instructions**
 A slightly modified source install of moveit is provided for MTRN4231. To use it follow the build instructions:
