@@ -193,8 +193,19 @@ The system uses Rviz2 for visualisation ensuring that any users are able to clea
 </div>
 
 # Installation and Setup
+
+## System Requirements
+This project requires the following:
+  * Operating System: Ubuntu 22.04.5 LTS (Jammy Jellyfish).
+  * ROS2 Humble. Follow the instructions [here](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html) to install.
+
+## Installation
+
+The item sorter uses an Intel RealSense depth camera, a Universal Robots UR5e arm, and a Teensy to control the gripper. Each of these requires external libraries to be installed. Install them **sequentially** as per the following instructions.
+
+
 ## **Moveit Setup Instructions**
-A slightly modified source install of moveit is provided for MTRN4231. To use it follow the build instructions:
+To calculate robot arm trajectories MoveIt is used. It is built in it's own directory. To build:
 
 1. Install Dependencies <pre>sudo apt install python3-rosdep
 sudo rosdep init
@@ -208,33 +219,44 @@ colcon mixin add default https://raw.githubusercontent.com/colcon/colcon-mixin-r
 colcon mixin update default
 sudo apt update && rosdep install -r --from-paths . --ignore-src --rosdistro $ROS_DISTRO -y
 </pre>
-2. Build the workspace <pre>cd ws_moveit2
+2. Build the workspace. If you have more than 16Gb of system RAM:<pre>cd ws_moveit2
 colcon build --mixin release</pre>
+Less than 16Gb of system RAM:<pre>cd ws_moveit2
+colcon build --mixin release --executor sequential
 
-## **UR Setup Instructions**
-The ur_robot_driver needs to be installed to run the robot and the sim:
+
+
+
+## **UR5e Setup Instructions**
+The Universal Robots libraries need to be installed to drive the UR5e arm and the sim:
 
 <pre>sudo apt install ros-humble-ur</pre>
 
-Run robot calibration before running anything else:
 
-<pre>ros2 launch ur_calibration calibration_correction.launch.py \
-robot_ip:=&lt;robot_ip&gt; target_filename:="${HOME}/my_robot_calibration.yaml"</pre>
+## **RealSense D435 Instructions**
+Install the depth camera drivers and ros wrapper:<pre>sudo apt install ros-humble-librealsense2* ros-humble-realsense2-*</pre>
 
 ## Hardware setup
 ### UR5e 
-Connect to UR5e base machine via ethernet. Ensure the robot is set in manual mode, and has a ROS interface program running. [Reference?]
+The UR5e box has an ethernet output, connected to it via this output. Your ethernet connection should be configured as per the setup instructions in your lab location. 
+
+Setup the robot side to connect to the *ur_robot_driver* on your machine. Instructions [here](https://github.com/UniversalRobots/Universal_Robots_ROS_Driver/blob/master/ur_robot_driver/doc/install_urcap_e_series.md).
+
 
 ### RealSense Camera
-Connect to base machine via supplied USB cable.
+Connect to your machine via the usb-c port on the real-sense camera.
 
 ### Teensy & End Effector
 Setup steps for teensy and end effector for UR5e:
-1. Attach end effector to ur5e connecting mount
-2. Connect teensy to pc usb port
-3. Connect servo wires to UR5e using phoenix connectors and custom mount
-4. Connect UR5e desktop power/interface box to teensy to complete circuit for servo
+1. Attach end effector to UR5e connecting mount.
+2. Connect teensy to usb port on your machine.
+3. Connect servo wires to UR5e using phoenix connectors and the custom mount.
+4. Connect UR5e desktop power/interface box to the teensy to complete the circuit for servo.
 
+## Robot Calibration
+To calibrate the robot controller run the following **after** connecting to the robot via ethernet.
+<pre>ros2 launch ur_calibration calibration_correction.launch.py \
+robot_ip:=&lt;robot_ip&gt; target_filename:="${HOME}/my_robot_calibration.yaml"</pre>
 ## List of Dependencies
 ### ROS Dependencies
 - ament_cmake
@@ -260,11 +282,9 @@ Setup steps for teensy and end effector for UR5e:
 - numpy
 - ultralytics
 
-## System Calibration
-This system is uniquely calibrated to function within the specific environment and with the specific set of objects and bins. As a result major changes need to be made when using this system in a new environment or with new items.
 
 ### YOLO Model
-The existing YOLO model was trained specifically for the test environment and specific objects used. For implementation, with other items a new YOLO model will have to be trained, and referrenced instead of the existing model in the perception node in /sorter_ws/src/perception.
+The existing YOLO model was trained specifically for the test environment and specific objects used. For implementation, with other items a new YOLO model will have to be trained, and referenced instead of the existing model in the perception node in /sorter_ws/src/perception.
 
 If planning to use the existing model the stl files for printed objects can be found in /sorter_ws/src/visualisation/meshes.
 ### Perception (/sorter_ws/src/perception)
@@ -301,20 +321,43 @@ For new items to be visualised they must have their label appended to ObjectID e
 In brain we setup the connection between objects and their respective bins. In /src/Brain.cpp the Brain::get_goal_label function should be modified to match between object labels and their respective bins.
 
 # Running the System
-[TODO]
+## **Running on the Real UR5e**
+Build and source the system using the provided *setup.bash*: <pre>cd sorter_ws
+colcon build
+source setup.bash</pre>
 
-## **Running in ROS**
-A setup script is provided in **setup.bash**. To use it run: <pre>source setup.bash</pre>
+On the UR5e teach pendant, set the robot to automatic mode, load your *ros.urp* program but do not start the program. Start the robot and engage it.
+
+
+Launch files are provided to run the system. First the robot controller, MoveIt and RViz are launched. <pre>ros2 launch sys_viz display.launch.py</pre>
+Once this has launched start the *ros.urp* program.
+
+Then launch the rest of the ROS nodes. <pre>ros2 launch sys_viz auxiliary.launch.py</pre>
+
 
 ## **Running in Simulation**
-Simulation uses gazebo and is sourced from the directory https://github.com/UniversalRobots/Universal_Robots_ROS2_Gazebo_Simulation
-To install dependencies: <pre>cd ur_gazebo/src
-rosdep update && rosdep install --ignore-src --from-paths . -y</pre>
-Then build:
-<pre>colcon build --symlink-install</pre>
+Simulation uses gazebo and is sourced from this [repo](https://github.com/UniversalRobots/Universal_Robots_ROS2_Gazebo_Simulation).
+
+To install it: <pre>mkdir -p ur_gazebo/src
+cd ur_gazebo/src
+git clone https://github.com/UniversalRobots/Universal_Robots_ROS2_Gazebo_Simulation.git
+rm */.git
+</pre>
+
+Install dependencies and build: 
+
+<pre>rosdep update && rosdep install --ignore-src --from-paths . -y
+colcon build --symlink-install
+</pre>
+
+Source using the provided *setup.bash* in sorter_ws <pre>source setup.bash</pre>
+
 This allows us to launch with the provided launch file to test:
-<pre>ros2 launch ur_simulation_gazebo ur_sim_moveit.launch.py</pre> or to launch without the moveit plugin
-<pre>ros2 launch ur_simulation_gazebo ur_sim_control.launch.py</pre>
+<pre>ros2 launch ur_simulation_gazebo ur_sim_moveit.launch.py</pre>
+
+To run the item-sorter do:
+<pre>ros2 launch sys_viz auziliary_sim.launch.py</pre>
+This will launch with the **test-detector** node in place of the **item-detector** which publishes objects in set positions.
 
 ## Launch commands
 
