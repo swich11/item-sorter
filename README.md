@@ -23,8 +23,7 @@ The simplified workflow will consist of:
 - Displaying the current state of the system and trajectories using RViz2. 
 
 ## Demo Video
-(OneDrive Link?)
-[TODO]
+Demo videos are availble [HERE](https://unsw-my.sharepoint.com/:f:/g/personal/z5308662_ad_unsw_edu_au/EkcEuQ6GF6NBoAji4lgktqYBNZ-D3-GuiaB03AXQboohSQ?e=0i0dxh "ITEM SORTER DEMO VIDEOS")
 
 # System Architecture
 The item-sorting system comprised of the following packages:
